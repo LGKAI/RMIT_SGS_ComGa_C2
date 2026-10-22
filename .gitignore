@@ -12,10 +12,6 @@ fine_tuning_report.md
 notebooks/
 requirements.txt
 
-# Competition reference repositories & media
-rmit-hackathon/
-sample-repo/
-
 # Logs & temp files
 *.log
 .tempmediaStorage/

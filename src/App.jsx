@@ -110,18 +110,35 @@ export default function App() {
     setActiveToken(true);
     showToast("Emergent Authority Token Granted (15-Minute Decryption Active)");
 
+    const pendingApproval = messages.find((m) => m.needsApproval && !m.approved);
+    const docName = pendingApproval?.targetDoc || "Tài liệu bảo mật";
+
     // Update message state
     setMessages((prev) =>
       prev.map((m) => (m.needsApproval ? { ...m, approved: true } : m))
     );
 
-    // AI delivers deep privileged analysis
+    // AI delivers deep privileged analysis tailored to document
     setTimeout(() => {
+      let analysisText = "";
+      let maskedEchoText = "";
+
+      if (/cv|resume/i.test(docName)) {
+        analysisText = `✅ [TideCloak Token Verified · Emergent Authority Active]\n\nPhân tích hồ sơ CV mật ("${docName}"):\n1. Hồ sơ ứng viên: 10+ năm kinh nghiệm quản lý cấp cao trong lĩnh vực Fintech & Enterprise SaaS.\n2. Lương và đãi ngộ cũ: Đã được ẩn danh hóa bằng WebCrypto ở tầng Client, Cloud LLM không thấy bản rõ.\n3. Đánh giá chuyên môn: Đạt 96/100 tiêu chuẩn bổ nhiệm Giám đốc Vận hành (COO).\n\n🔒 Lưu ý: Quyền truy cập 15 phút đang kích hoạt. Bấm "Revoke Token" bất kỳ lúc nào để khóa lại.`;
+        maskedEchoText = `✅ [TideCloak Token Verified · Emergent Authority Active]\n\nPhân tích hồ sơ CV mật ("${docName}"):\n1. Hồ sơ ứng viên: 10+ năm kinh nghiệm quản lý cấp cao.\n2. Lương và đãi ngộ cũ: Đã được ẩn danh hóa bằng WebCrypto [SALARY_MASKED].\n3. Đánh giá chuyên môn: Đạt tiêu chuẩn bổ nhiệm Giám đốc Vận hành.`;
+      } else if (/passport|cccd|cmnd/i.test(docName)) {
+        analysisText = `✅ [TideCloak Token Verified · Emergent Authority Active]\n\nPhân tích giấy tờ tùy thân ("${docName}"):\n1. Tính hợp pháp: Hộ chiếu / CCCD còn hạn sử dụng, đặc điểm nhận dạng hợp lệ.\n2. Bảo vệ danh tính: Số định danh cá nhân và ngày sinh được cô lập trong bộ nhớ đệm an toàn.\n3. Xác thực eKYC: Mức độ tin cậy Cấp độ 3 (Level-3 Verified).\n\n🔒 Lưu ý: Quyền truy cập 15 phút đang kích hoạt. Bấm "Revoke Token" để khóa lại.`;
+        maskedEchoText = `✅ [TideCloak Token Verified · Emergent Authority Active]\n\nPhân tích giấy tờ tùy thân ("${docName}"):\n1. Tính hợp pháp: Giấy tờ còn hạn sử dụng.\n2. Bảo vệ danh tính: Số định danh [ID_MASKED] được cô lập an toàn.\n3. Xác thực eKYC: Mức độ tin cậy Cấp độ 3.`;
+      } else {
+        analysisText = `✅ [TideCloak Token Verified · Emergent Authority Active]\n\nPhân tích bảo mật tài liệu mật ("${docName}"):\n1. Định giá sáp nhập $12,500,000 USD: Cần quy định tài khoản Escrow phong tỏa tại Techcombank.\n2. Điều khoản không cạnh tranh (Non-compete) 36 tháng là quá dài; khuyến nghị đàm phán xuống 18-24 tháng.\n3. Điều khoản MAE (Material Adverse Effect) bảo vệ tài sản sở hữu trí tuệ công nghệ an toàn.\n\n🔒 Lưu ý: Vùng nhớ RAM tạm thời sẽ được zeroized ngay sau phiên làm việc.`;
+        maskedEchoText = `✅ [TideCloak Token Verified · Emergent Authority Active]\n\nPhân tích bảo mật tài liệu mật:\n1. Định giá sáp nhập [MONEY_1]: Cần quy định tài khoản Escrow phong tỏa tại Techcombank.\n2. Điều khoản không cạnh tranh (Non-compete) 36 tháng là quá dài; khuyến nghị đàm phán xuống 18-24 tháng.\n3. Điều khoản MAE bảo vệ tài sản sở hữu trí tuệ công nghệ an toàn.`;
+      }
+
       const privilegedReply = {
         id: `msg-${Date.now()}`,
         sender: "ai",
-        text: `✅ [TideCloak Token Verified · Emergent Authority Active]\n\nPhân tích bảo mật tài liệu mật:\n1. Định giá sáp nhập $12,500,000 USD: Cần quy định tài khoản Escrow phong tỏa tại Techcombank.\n2. Điều khoản không cạnh tranh (Non-compete) 36 tháng là quá dài; khuyến nghị đàm phán xuống 18-24 tháng.\n3. Điều khoản MAE (Material Adverse Effect) bảo vệ tài sản sở hữu trí tuệ công nghệ an toàn.\n\n🔒 Lưu ý: Vùng nhớ RAM tạm thời sẽ được zeroized ngay sau phiên làm việc.`,
-        maskedEcho: `✅ [TideCloak Token Verified · Emergent Authority Active]\n\nPhân tích bảo mật tài liệu mật:\n1. Định giá sáp nhập [MONEY_1]: Cần quy định tài khoản Escrow phong tỏa tại Techcombank.\n2. Điều khoản không cạnh tranh (Non-compete) 36 tháng là quá dài; khuyến nghị đàm phán xuống 18-24 tháng.\n3. Điều khoản MAE bảo vệ tài sản sở hữu trí tuệ công nghệ an toàn.`,
+        text: analysisText,
+        maskedEcho: maskedEchoText,
         timestamp: nowTime()
       };
       setMessages((m) => [...m, privilegedReply]);
