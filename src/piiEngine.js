@@ -15,7 +15,11 @@ export const VN_SURNAMES = [
   "đinh", "dinh", "lâm", "lam", "phùng", "phung", "mai", "tô", "to", "hà", "ha", "tạ", "ta", "trương", "truong"
 ];
 
-const VN_MIDDLES = ["văn", "van", "thị", "thi", "hữu", "huu", "đức", "duc", "minh", "ngọc", "ngoc", "thanh", "quốc", "quoc", "gia", "xuân", "xuan", "bảo", "bao", "chấn", "chan", "trung"];
+const COMMON_FIRST_NAMES = [
+  "khoa", "hùng", "hung", "khánh", "khanh", "hiếu", "hieu", "kin", "nam", "tuấn", "tuan", "minh",
+  "lan", "hoa", "anh", "hương", "huong", "phương", "phuong", "linh", "trang", "hà", "ha", "dũng", "dung",
+  "thảo", "thao", "tùng", "tung", "ngọc", "ngoc", "long", "bảo", "bao", "chấn", "chan", "quân", "quan", "sarah"
+];
 
 const BANK_CTX_KEYWORDS = /(?:stk|số tài khoản|so tai khoan|số tk|so tk|tài khoản|tai khoan|chuyển khoản|chuyen khoan|thụ hưởng|thu huong|vietcombank|vcb|techcombank|tcb|mbbank|bidv|vietinbank|ctg|agribank|vpbank|tpbank|acb|sacombank|stb|hdbank|vib|shb|seabank|msb|ocb|momo|zalopay)/i;
 
@@ -105,7 +109,7 @@ export function detectAndMaskPII(text) {
     }
   }
 
-  // 6. Vietnamese Names (2-4 capitalized words starting with VN Surnames)
+  // 6. Full Vietnamese Names (2-4 capitalized words starting with VN Surnames)
   const nameRegex = /\b([A-ZÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬĐÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴ][a-zàáảãạăằắẳẵặâầấẩẫậđèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵ]+(?:\s+[A-ZÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬĐÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴ][a-zàáảãạăằắẳẵặâầấẩẫậđèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵ]+){1,3})\b/g;
   while ((match = nameRegex.exec(text)) !== null) {
     const fullName = match[0];
@@ -116,6 +120,21 @@ export function detectAndMaskPII(text) {
       if (!isOverlapping(start, end)) {
         const token = `[NAME_${counter.NAME++}]`;
         entities.push({ type: "NAME", value: fullName, token, start, end, enabled: true });
+      }
+    }
+  }
+
+  // 7. Single Name Detection (e.g., "Khoa", "Hùng", "Lan", "Sarah", or "anh Khoa", "bạn Nam")
+  const singleNameRegex = /\b(?:(?:anh|chị|chi|em|ông|ong|bà|ba|bạn|ban|khách hàng|bệnh nhân|tên là)\s+)?([A-ZÀÁẢÃẠĂẰẮẲẴẶÂẦẤẨẪẬĐÈÉẺẼẸÊỀẾỂỄỆÌÍỈĨỊÒÓỎÕỌÔỒỐỔỖỘƠỜỚỞỠỢÙÚỦŨỤƯỪỨỬỮỰỲÝỶỸỴ][a-zàáảãạăằắẳẵặâầấẩẫậđèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵ]+)\b/g;
+  while ((match = singleNameRegex.exec(text)) !== null) {
+    const candidateName = match[1];
+    const lower = candidateName.toLowerCase();
+    if (COMMON_FIRST_NAMES.includes(lower)) {
+      const start = match.index + (match[0].length - candidateName.length);
+      const end = start + candidateName.length;
+      if (!isOverlapping(start, end)) {
+        const token = `[NAME_${counter.NAME++}]`;
+        entities.push({ type: "NAME", value: candidateName, token, start, end, enabled: true });
       }
     }
   }
@@ -158,7 +177,6 @@ export function unmaskText(maskedText, piiMap) {
   if (!maskedText || !piiMap) return maskedText;
   let result = maskedText;
   for (const [token, realVal] of Object.entries(piiMap)) {
-    // Replace token variations (e.g. [NAME_1], NAME_1)
     const escaped = token.replace(/[[\]]/g, '\\$&');
     const regex = new RegExp(escaped, 'g');
     result = result.replace(regex, realVal);

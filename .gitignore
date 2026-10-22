@@ -1,0 +1,27 @@
+# Node dependencies & build artifacts
+node_modules/
+dist/
+dist-ssr/
+*.local
+.env
+.env.*.local
+
+# Challenge 1 files & notebooks (separate repository)
+RMIT_SGS_ComGa_C1.ipynb
+fine_tuning_report.md
+notebooks/
+requirements.txt
+
+# Competition reference repositories & media
+rmit-hackathon/
+sample-repo/
+
+# Logs & temp files
+*.log
+.tempmediaStorage/
+
+# System & IDE files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

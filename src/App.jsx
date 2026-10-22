@@ -12,11 +12,17 @@ function nowTime() {
 export default function App() {
   const { authenticated, isLoading, login, logout, getValueFromToken } = useTideCloak();
 
+  // Local simulated session state if user clicks Quick Demo Login
+  const [simulatedAuth, setSimulatedAuth] = useState(false);
+
   // Role Switcher: "user" | "gateway" | "admin"
   const [viewRole, setViewRole] = useState("user");
 
   // Client Unmasking Toggle
   const [showUnmasked, setShowUnmasked] = useState(true);
+
+  // Emergent Authority Token (15-min temporary grant)
+  const [activeToken, setActiveToken] = useState(false);
 
   // Chat State
   const [messages, setMessages] = useState(vaultData.defaultChatHistory);
@@ -57,7 +63,14 @@ export default function App() {
     toastTimer.current = setTimeout(() => setToast(""), 6000);
   }
 
-  // Login handler
+  const isUserLoggedIn = authenticated || simulatedAuth;
+  const currentUserName = authenticated
+    ? getValueFromToken?.("preferred_username") || "Sarah Nguyen"
+    : simulatedAuth
+    ? "Sarah Nguyen (Demo)"
+    : null;
+
+  // Real Keycloak login handler
   async function handleLogin() {
     try {
       const ctrl = new AbortController();
@@ -65,7 +78,7 @@ export default function App() {
       await fetch(AUTH_SERVER, { mode: "no-cors", signal: ctrl.signal });
       clearTimeout(t);
     } catch {
-      showToast("TideCloak container is not reachable on localhost:8080. Start Docker to connect.");
+      showToast("TideCloak container is not running on localhost:8080. Start Docker to connect.");
       return;
     }
     try {
@@ -73,6 +86,53 @@ export default function App() {
     } catch (err) {
       showToast(`Login failed: ${err.message}`);
     }
+  }
+
+  // Quick 1-click demo login
+  function handleQuickDemoLogin() {
+    setSimulatedAuth(true);
+    showToast("Signed in as Sarah Nguyen (Zero-Trust Session Active)");
+  }
+
+  function handleLogout() {
+    if (authenticated) {
+      logout();
+    }
+    setSimulatedAuth(false);
+  }
+
+  // Grant 15-Minute Emergent Authority Token
+  function handleGrantEmergentAuthority() {
+    setActiveToken(true);
+    showToast("Emergent Authority Token Granted (15-Minute Decryption Active)");
+
+    // Update message state
+    setMessages((prev) =>
+      prev.map((m) => (m.needsApproval ? { ...m, approved: true } : m))
+    );
+
+    // AI delivers deep privileged analysis
+    setTimeout(() => {
+      const privilegedReply = {
+        id: `msg-${Date.now()}`,
+        sender: "ai",
+        text: `✅ [TideCloak Token Verified · Emergent Authority Active]\n\nPhân tích bảo mật tài liệu mật:\n1. Định giá sáp nhập $12,500,000 USD: Cần quy định tài khoản Escrow phong tỏa tại Techcombank.\n2. Điều khoản không cạnh tranh (Non-compete) 36 tháng là quá dài; khuyến nghị đàm phán xuống 18-24 tháng.\n3. Điều khoản MAE (Material Adverse Effect) bảo vệ tài sản sở hữu trí tuệ công nghệ an toàn.\n\n🔒 Lưu ý: Vùng nhớ RAM tạm thời sẽ được zeroized ngay sau phiên làm việc.`,
+        maskedEcho: `✅ [TideCloak Token Verified · Emergent Authority Active]\n\nPhân tích bảo mật tài liệu mật:\n1. Định giá sáp nhập [MONEY_1]: Cần quy định tài khoản Escrow phong tỏa tại Techcombank.\n2. Điều khoản không cạnh tranh (Non-compete) 36 tháng là quá dài; khuyến nghị đàm phán xuống 18-24 tháng.\n3. Điều khoản MAE bảo vệ tài sản sở hữu trí tuệ công nghệ an toàn.`,
+        timestamp: nowTime()
+      };
+      setMessages((m) => [...m, privilegedReply]);
+    }, 600);
+  }
+
+  // Emergency Revocation
+  function handleRevokeToken() {
+    setActiveToken(false);
+    showToast("Emergency Lockdown: Emergent Authority Token Revoked.");
+    setAlert({
+      type: "info",
+      title: "🔒 Vault Locked Down",
+      message: "Active Emergent Authority tokens revoked. AI memory buffers zeroed out."
+    });
   }
 
   // Select sample preset prompt
@@ -102,7 +162,7 @@ export default function App() {
     setInputVal("");
     setChatLoading(true);
 
-    // Update Gateway Echo
+    // Update Gateway Echo (What Cloud AI receives)
     setGatewayEcho({
       ticketId: `tkt-${Math.random().toString(36).slice(2, 8)}`,
       timestamp: nowTime(),
@@ -111,11 +171,12 @@ export default function App() {
       userHash: "sha256(sub)::c8a14b...09ef (ANONYMOUS)"
     });
 
-    // Check Prompt Injection (Challenge 1 Guardrail)
+    // Intelligent AI Response Generation
     setTimeout(() => {
       setChatLoading(false);
-      const isInjection = /bỏ qua|ignore|jailbreak|bypass|api key|root|password|dump|mật khẩu/i.test(raw);
 
+      // Check Prompt Injection (Challenge 1 Guardrail)
+      const isInjection = /bỏ qua|ignore|jailbreak|bypass|api key|root|password|dump|mật khẩu|trích xuất/i.test(raw);
       if (isInjection) {
         setAlert({
           type: "danger",
@@ -135,28 +196,56 @@ export default function App() {
         return;
       }
 
-      // Contextual Response
-      let aiPlain = "";
-      let aiMasked = "";
+      // Check if user is asking about Military Service (Nghĩa vụ quân sự)
+      const isMilitary = /nghĩa vụ|quân sự|nhập ngũ|đi lính|20 tuổi|khám tuyển/i.test(raw);
+      if (isMilitary) {
+        const nameVal = scan.entities.find((e) => e.type === "NAME")?.value || "bạn";
+        const phoneVal = scan.entities.find((e) => e.type === "PHONE")?.value || "[Số điện thoại]";
 
-      if (scan.entities.some((e) => e.type === "NAME" || e.type === "CCCD" || e.type === "STK")) {
-        const nameVal = scan.entities.find((e) => e.type === "NAME")?.value || "the client";
-        const stkVal = scan.entities.find((e) => e.type === "STK")?.value || "account";
-        aiPlain = `Credit risk assessment for ${nameVal}:\n1. Validated legal status under institutional banking criteria.\n2. Operating cash flows via account ${stkVal} qualify for Tier-1 terms.\n3. Compliance verified: Article 30 Law 91/2025/QH15 (AI & Cloud Data Minimization).`;
-        aiMasked = `Credit risk assessment for [NAME_1]:\n1. Validated legal status under institutional banking criteria.\n2. Operating cash flows via account [STK_1] qualify for Tier-1 terms.\n3. Compliance verified: Article 30 Law 91/2025/QH15 (AI & Cloud Data Minimization).`;
-      } else {
-        aiPlain = `Your request was processed securely via TideCloak Client-Side Envelope Encryption. Zero plaintext stored on cloud AI servers.`;
-        aiMasked = `Your request was processed securely via TideCloak Client-Side Envelope Encryption. Zero plaintext stored on cloud AI servers.`;
+        const aiPlain = `Chào ${nameVal}, theo quy định tại Điều 30 Luật Nghĩa vụ quân sự 2015:\n\n1. Độ tuổi nhập ngũ: Công dân nam từ đủ 18 tuổi đến hết 25 tuổi. Nếu đang học đại học, cao đẳng hệ chính quy thì được tạm hoãn và độ tuổi gọi nhập ngũ kéo dài đến hết 27 tuổi.\n2. Trường hợp của ${nameVal} (20 tuổi): Hoàn toàn nằm trong độ tuổi gọi khám tuyển nghĩa vụ quân sự. Nếu có lệnh gọi khám sức khỏe và đạt tiêu chuẩn (sức khỏe loại 1, 2, 3; lý lịch rõ ràng; không thuộc diện tạm hoãn/miễn), bạn sẽ được gọi nhập ngũ.\n\n🛡️ Bảo mật: Số điện thoại (${phoneVal}) và danh tính của bạn đã được mã hóa an toàn qua TideCloak, Cloud AI hoàn toàn không lưu bản rõ.`;
+
+        const aiMasked = `Chào [NAME_1], theo quy định tại Điều 30 Luật Nghĩa vụ quân sự 2015:\n\n1. Độ tuổi nhập ngũ: Công dân nam từ đủ 18 tuổi đến hết 25 tuổi. Nếu đang học đại học, cao đẳng thì được kéo dài đến hết 27 tuổi.\n2. Trường hợp của [NAME_1] (20 tuổi): Thuộc độ tuổi gọi khám tuyển nghĩa vụ quân sự.\n\n🛡️ Bảo mật: Số điện thoại ([PHONE_1]) đã được bảo vệ tuyệt đối.`;
+
+        setMessages((m) => [...m, { id: `msg-${Date.now()}`, sender: "ai", text: aiPlain, maskedEcho: aiMasked, timestamp: nowTime() }]);
+        return;
       }
 
-      const aiReply = {
-        id: `msg-${Date.now()}`,
-        sender: "ai",
-        text: aiPlain,
-        maskedEcho: aiMasked,
-        timestamp: nowTime()
-      };
-      setMessages((m) => [...m, aiReply]);
+      // Check if user is asking about M&A or Confidential Contracts -> Needs Emergent Authority Approval!
+      const isSensitiveDoc = /M&A|hợp đồng|sáp nhập|non-compete|bản thỏa thuận|term sheet/i.test(raw);
+      if (isSensitiveDoc && !activeToken) {
+        const consentReply = {
+          id: `msg-${Date.now()}`,
+          sender: "ai",
+          text: `Tài liệu bạn yêu cầu ("Thỏa thuận M&A $12.5M") chứa dữ liệu nhạy cảm cấp độ bí mật kinh doanh. Để phân tích điều khoản, hệ thống cần bạn phê duyệt thẩm quyền giải mã tạm thời qua TideCloak (Emergent Authority).`,
+          maskedEcho: `Tài liệu yêu cầu chứa dữ liệu nhạy cảm cấp độ bí mật kinh doanh. Yêu cầu Emergent Authority Approval.`,
+          needsApproval: true,
+          approved: false,
+          timestamp: nowTime()
+        };
+        setMessages((m) => [...m, consentReply]);
+        return;
+      }
+
+      // Check if Banking / Credit loan dossier
+      const isBanking = /vay|hồ sơ|tín dụng|thế chấp|vietcombank|ngân hàng|stk|cccd/i.test(raw);
+      if (isBanking) {
+        const nameVal = scan.entities.find((e) => e.type === "NAME")?.value || "khách hàng";
+        const stkVal = scan.entities.find((e) => e.type === "STK")?.value || "tài khoản ngân hàng";
+
+        const aiPlain = `Kết quả thẩm định tín dụng cho ${nameVal}:\n1. Tính pháp lý: Căn cước công dân và thông tin đăng ký kinh doanh hợp lệ.\n2. Dòng tiền thanh toán: Lịch sử giao dịch qua ${stkVal} đạt điểm tín dụng Hạng A.\n3. Đánh giá: Khoản vay thế chấp bất động sản đạt tỷ lệ LTV an toàn (~48%), khuyến nghị duyệt giải ngân.\n\n🛡️ Tuân thủ: Điều 30 Luật BVDLCN số 91/2025/QH15 (Không lưu bản rõ trên Cloud).`;
+
+        const aiMasked = `Kết quả thẩm định tín dụng cho [NAME_1]:\n1. Tính pháp lý: Căn cước công dân [CCCD_1] hợp lệ.\n2. Dòng tiền thanh toán: Lịch sử qua [STK_1] đạt điểm tín dụng Hạng A.\n3. Đánh giá: Khoản vay [MONEY_1] đạt tỷ lệ LTV an toàn (~48%).\n\n🛡️ Tuân thủ: Điều 30 Luật BVDLCN số 91/2025/QH15.`;
+
+        setMessages((m) => [...m, { id: `msg-${Date.now()}`, sender: "ai", text: aiPlain, maskedEcho: aiMasked, timestamp: nowTime() }]);
+        return;
+      }
+
+      // General intelligent conversation
+      const personName = scan.entities.find((e) => e.type === "NAME")?.value || "bạn";
+      const aiPlain = `Chào ${personName}! Yêu cầu "${raw}" của bạn đã được tiếp nhận và xử lý qua kênh mã hóa Client-Side TideCloak.\n\nToàn bộ định danh cá nhân (PII) đã được giả danh hóa trước khi rời khỏi trình duyệt. Máy chủ Cloud AI không lưu trữ bản rõ, đảm bảo an toàn tuyệt đối.`;
+      const aiMasked = `Yêu cầu "${scan.maskedText}" đã được xử lý qua kênh mã hóa Client-Side TideCloak. Dữ liệu nhạy cảm được bảo vệ 100%.`;
+
+      setMessages((m) => [...m, { id: `msg-${Date.now()}`, sender: "ai", text: aiPlain, maskedEcho: aiMasked, timestamp: nowTime() }]);
     }, 600);
   }
 
@@ -208,6 +297,7 @@ export default function App() {
   function handleResetDemo() {
     setIsShredded(false);
     setDbTampered(false);
+    setActiveToken(false);
     setAlert(null);
     setMessages(vaultData.defaultChatHistory);
     setQuorumSignatures(["Admin 1 (SecOps Lead)"]);
@@ -245,20 +335,32 @@ export default function App() {
             </select>
           </div>
 
-          {/* TideCloak Auth Button */}
-          <div className="auth-status">
-            <span className={`status-dot ${authenticated ? "active" : ""}`}></span>
-            <span>{authenticated ? `TideCloak · ${getValueFromToken?.("preferred_username") || "Signed in"}` : "TideCloak · Connected"}</span>
-          </div>
-
-          {authenticated ? (
-            <button className="btn-auth" onClick={logout} id="btn-auth">
-              Sign out
-            </button>
+          {/* Auth Controls */}
+          {isUserLoggedIn ? (
+            <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+              <div className="auth-status">
+                <span className="status-dot active"></span>
+                <span>TideCloak · {currentUserName}</span>
+              </div>
+              <button className="btn-auth" onClick={handleLogout} id="btn-auth">
+                Sign out
+              </button>
+            </div>
           ) : (
-            <button className="btn-auth" onClick={handleLogin} id="btn-auth">
-              Connect TideCloak IdP
-            </button>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+              <button className="btn-auth" onClick={handleLogin} id="btn-auth" title="Sign in with real TideCloak IdP (sarah / password123)">
+                Connect TideCloak IdP
+              </button>
+              <button
+                className="btn-auth"
+                style={{ background: "#f8fafc", color: "var(--text-secondary)", borderColor: "var(--border-medium)" }}
+                onClick={handleQuickDemoLogin}
+                id="btn-quick-demo"
+                title="1-Click Simulated Demo Login as Sarah Nguyen"
+              >
+                ⚡ Quick Demo
+              </button>
+            </div>
           )}
         </div>
       </header>
@@ -283,8 +385,8 @@ export default function App() {
             <strong>&lt; 4ms</strong>
           </div>
           <div className="metric-pill">
-            <span>Server Master Keys:</span>
-            <strong>0% (Ineffable Cryptography)</strong>
+            <span>Active Token:</span>
+            <strong>{activeToken ? "15-Min Active ✓" : "Locked"}</strong>
           </div>
         </div>
       </div>
@@ -313,13 +415,25 @@ export default function App() {
               <h2>👤 Client Safe Zone</h2>
               <span className="card-sub">In-Browser Decrypted View &middot; WebCrypto AES-GCM</span>
             </div>
-            <button
-              className="chip blue"
-              style={{ cursor: "pointer" }}
-              onClick={() => setShowUnmasked(!showUnmasked)}
-            >
-              {showUnmasked ? "👁️ Unmasked (Real Names)" : "🔒 Masked Tokens"}
-            </button>
+            <div style={{ display: "flex", gap: "0.35rem" }}>
+              {activeToken && (
+                <button
+                  className="chip red"
+                  style={{ cursor: "pointer" }}
+                  onClick={handleRevokeToken}
+                  title="Revoke active decryption token immediately"
+                >
+                  🔒 Revoke Token
+                </button>
+              )}
+              <button
+                className="chip blue"
+                style={{ cursor: "pointer" }}
+                onClick={() => setShowUnmasked(!showUnmasked)}
+              >
+                {showUnmasked ? "👁️ Unmasked View" : "🔒 Masked Tokens"}
+              </button>
+            </div>
           </div>
 
           {/* Chat Messages */}
@@ -332,13 +446,36 @@ export default function App() {
               messages.map((m) => (
                 <div key={m.id} className={`chat-bubble ${m.sender}`}>
                   <div className="bubble-meta">
-                    <span>{m.sender === "user" ? "Sarah Nguyen (User)" : "Confidential AI Assistant"}</span>
+                    <span>{m.sender === "user" ? "User Query" : "Confidential AI Assistant"}</span>
                     <span>&bull;</span>
                     <span>{m.timestamp}</span>
                   </div>
                   <div className="bubble-text">
                     {showUnmasked ? m.text : (m.maskedText || m.maskedEcho || m.text)}
                   </div>
+
+                  {/* Emergent Authority Approval Card */}
+                  {m.needsApproval && !m.approved && (
+                    <div style={{ marginTop: 8, background: "#fffbeb", border: "1px solid #fde68a", borderRadius: "6px", padding: "8px 10px", fontSize: "0.74rem" }}>
+                      <div style={{ color: "#92400e", fontWeight: 600, marginBottom: 6 }}>
+                        🔒 <strong>Thẩm quyền Giải mã Tạm thời (Emergent Authority):</strong> AI yêu cầu cấp quyền 15 phút để phân tích hồ sơ mật.
+                      </div>
+                      <button
+                        className="btn-ctrl blue"
+                        style={{ padding: "4px 10px", fontSize: "0.72rem" }}
+                        onClick={handleGrantEmergentAuthority}
+                      >
+                        ✍️ Phê duyệt Cấp quyền 15 Phút qua TideCloak
+                      </button>
+                    </div>
+                  )}
+
+                  {m.needsApproval && m.approved && (
+                    <div style={{ marginTop: 4, color: "#166534", fontSize: "0.7rem", fontWeight: 600 }}>
+                      ✓ Emergent Authority Token Granted (15m Active)
+                    </div>
+                  )}
+
                   {m.piiCount > 0 && (
                     <div className="bubble-tags">
                       <span className="bubble-tag-pill">🛡️ {m.piiCount} PII entities protected</span>
