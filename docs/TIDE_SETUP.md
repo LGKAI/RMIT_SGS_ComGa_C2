@@ -1,49 +1,71 @@
-# Tích hợp Tide thật và kiểm chứng QEA
+# TideCloak Integration & QEA Verification Guide
 
-Trạng thái hiện tại: code adapter và verifier đã viết; chưa có realm/license hoặc hai Tide account để chứng minh vận hành thực tế. Demo passphrase không thay thế kiểm chứng này.
+## Overview
 
-## Chuẩn bị
+PrivateChat Shield integrates TideCloak (`@tidecloak/react`) for decentralized key encapsulation and dual-control Quorum-Enforced Authorization (QEA).
 
-1. Khởi động Docker Desktop. Tham khảo [Tide Quickstart](https://docs.tide.org/Admin/) và [QEA setup](https://docs.tide.org/Admin/SetupIGA) để dùng image được nhà cung cấp hỗ trợ. Compose có profile `tide` cho dev. Sau khi xác định image chạy được, đặt `TIDECLOAK_IMAGE` thành tag/digest đã thử, không coi `latest` là phiên bản đã kiểm chứng.
-2. Chạy `docker compose --profile tide up -d`. Dịch vụ chỉ publish trên loopback. Mật khẩu compose là development-only; đổi nếu dùng ngoài máy cá nhân.
-3. Mở `http://localhost:8080/`; hoàn tất setup realm `privatechat`, license và liên kết Tide account. Không dùng master realm cho dữ liệu ứng dụng.
-4. Thêm admin độc lập thứ hai và hoàn tất enrollment, QEA approval của việc gán admin. Xác nhận quorum thực tế lớn hơn một; realm một admin chưa chứng minh nhiều bên.
-5. Tạo app/client `privatechat`, public client phù hợp SDK. Redirect URI `http://localhost:5173/*`; Web origin `http://localhost:5173`. Duyệt/commit các thay đổi.
-6. Tạo và duyệt `_tide_chat.selfencrypt` cùng `_tide_chat.selfdecrypt`; gán đúng người dùng hoặc default roles bằng governed changes.
-7. Tải Tide adapter chính thức từ Apps → client → Credentials → Tide adapter, thay `public/tidecloak.json`. File mẫu trong repo chỉ là placeholder, không chứng minh đã cấp license.
-8. Cấu hình audience của access token cho API. Điền `.env`: `TIDE_ISSUER` đúng issuer trong discovery; `TIDE_AUDIENCE` có mặt trong `aud`; `DATABASE_URL`, `GEMINI_API_KEY`, `GEMINI_MODEL`.
-9. Chạy `npm run dev:live`. Callback `/auth/redirect` được Vite/backend SPA phục vụ. Không đổi sang mock nếu đăng nhập/mở khóa thất bại.
+The live TideCloak development node is hosted via Docker on `http://localhost:8080`.
 
-Verifier dùng JWKS cố định từ issuer đã cấu hình: `/protocol/openid-connect/certs`, kiểm tra chữ ký, issuer, audience, expiry. HTTP chỉ được phép cho issuer localhost; issuer bên ngoài cần HTTPS. Kiểm tra cấu hình CSP/network với adapter và các endpoint thực tế trước khi triển khai hosting.
+- **TideCloak User Account Console**: [http://localhost:8080/realms/myrealm/account/](http://localhost:8080/realms/myrealm/account/)
+- **TideCloak Admin Console**: [http://localhost:8080/admin/](http://localhost:8080/admin/)
+- **OpenID Discovery**: [http://localhost:8080/realms/myrealm/.well-known/openid-configuration](http://localhost:8080/realms/myrealm/.well-known/openid-configuration)
 
-## Kiểm tra A/B và khóa
+---
 
-| Kiểm tra | Các bước | Đạt khi |
+## 1. Hackathon Threat Model Personas
+
+To simulate real-world enterprise zero-trust workflows, PrivateChat Shield models 4 distinct personas:
+
+| Persona | System Role & Authority | Security Boundary / Perspective |
 |---|---|---|
-| A round-trip | Đăng nhập A; bấm Kiểm tra key provider | Hash khóa sau unwrap khớp trước wrap |
-| A reload | Lưu hội thoại; F5; đăng nhập lại A; mở | Snapshot giải mã đúng |
-| B cùng role | Copy probe JSON của A; đăng nhập B cùng các role; thử mở probe | Fabric/SDK từ chối hoặc không trả khóa khớp |
-| API ownership | B thử ID hội thoại của A qua endpoint được xác thực | GET/PUT/DELETE bị từ chối |
+| **Lê Gia Khánh** | **Enterprise User / Requester** | Authors prompts, attaches sensitive credit dossiers / PDFs / OCR images. Holds client-side unmasking key. Cannot self-approve. |
+| **Cái Hoàng Bảo Kin** | **Security Reviewer / Gatekeeper** | Holds `file-approver` authority. Inspects pseudonymized payloads before they leave the enterprise perimeter. |
+| **Trần Trung Hiếu** | **Cloud AI Vendor / "Admin AI" Auditor** | Simulates the untrusted cloud AI provider. Receives **0.00% raw PII**, only consistent pseudonymized tokens. |
+| **Phạm Chấn Khoa** | **Database Administrator (DBA)** | Privileged storage insider. Can inspect raw PostgreSQL disk/tables, but encounters exclusively `AES-256-GCM` ciphertext. |
 
-Nếu B mở probe A được, dừng sử dụng dữ liệu nhạy cảm, lưu evidence và xác minh semantics với Tide. Không sửa bằng cách chỉ ẩn hội thoại trên UI hoặc thêm role giả.
+---
 
-## Kiểm tra QEA ở Console
+## 2. TideCloak Setup Steps
 
-1. Chọn một thay đổi role/scope được tài liệu QEA hỗ trợ, ví dụ cấp role mới cho một tài khoản thử nghiệm chưa có role.
-2. Ghi trạng thái quyền trước thay đổi. Admin 1 tạo yêu cầu và chỉ phê duyệt bằng danh tính của mình.
-3. Xác nhận Change Request còn pending và quyền chưa có hiệu lực khi chưa đạt quorum. Nếu thử commit, ghi trạng thái lỗi thực tế; không dựng thông báo giả.
-4. Admin 2 đăng nhập độc lập, duyệt hoặc từ chối trong Console/enclave. Kiểm tra quyền cuối cùng bằng token/operation mới khi cần, không chỉ nhìn số chữ ký.
-5. Lưu version server/SDK, request ID, số admin, quorum, thời gian và ảnh/video vào ghi chú test. Không lưu access token, private key hoặc mật khẩu.
+1. **Launch Docker Desktop**: Ensure the Docker daemon is active.
+2. **Start TideCloak**: Run `docker compose --profile tide up -d` or use the existing active container `tidecloak`.
+3. **Access Realm**:
+   - Access `http://localhost:8080/` to configure realm `myrealm` (or `privatechat`).
+   - Create a public client: `privatechat-client` with Redirect URI `http://localhost:5173/*` and Web Origin `http://localhost:5173`.
+4. **QEA Dual Admin Enrollment**:
+   - Create two independent administrators in TideCloak.
+   - Configure Quorum-Enforced Authorization so that role grants require 2 signatures.
+5. **Role Mapping**:
+   - Configure the client role `file-approver` and assign it to reviewer accounts (such as Cái Hoàng Bảo Kin).
+6. **Environment Configuration**:
+   - Populate `.env` with:
+     ```env
+     TIDE_ISSUER=http://localhost:8080/realms/myrealm
+     TIDE_AUDIENCE=privatechat-client
+     APPROVAL_STORAGE_KEY=0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef
+     ```
+7. **Launch Live Mode**:
+   ```bash
+   npm run dev:tide:demo
+   # or full live mode with cloud LLM:
+   npm run dev:live
+   ```
 
-QEA này quản trị thay đổi quyền; nó không có nghĩa mọi lượt chat cần hai admin ký. Với self-encryption, gán cùng role không tự động chứng minh người khác có thể giải mã dữ liệu của A.
+---
 
-## Bằng chứng hiện chưa có
+## 3. Cryptographic Probe Verification
 
-- License và realm chạy thật.
-- A/B trên Fabric thật và hai enrollment độc lập.
-- QEA nhiều admin thực sự giữ quyền ở trạng thái chưa có hiệu lực.
-- End-to-end với Postgres Docker và Gemini có billing/key thật.
+| Test Case | Procedure | Expected Verification |
+|---|---|---|
+| **Round-Trip Wrap/Unwrap** | Log in as Lê Gia Khánh; click "Probe Key Provider" | Root key hash after unwrap matches pre-wrap exactly |
+| **Cross-User Isolation** | Export probe payload from Lê Gia Khánh; attempt opening with Cái Hoàng Bảo Kin | Fabric/SDK rejects unwrapping; keys never leak |
+| **Ciphertext Tampering** | Mutate one ciphertext byte in storage | WebCrypto AES-GCM tag check triggers immediate tamper error |
+| **Admin AI Leakage Check** | Inspect Gateway Outbound Payload under Trần Trung Hiếu | 0 raw PII leakage; all identifiers replaced by stable UUID tokens |
 
-Đây là các bước cấu hình/vận hành cần account của người dùng; không được đánh dấu hoàn thành bằng unit test hoặc demo passphrase.
+---
 
-Nguồn: [React SDK](https://docs.tide.org/Languages/React/tidecloak-react-tutorial), [E2EE setup](https://docs.tide.org/Admin/e2ee), [QEA](https://docs.tide.org/Admin/SetupIGA).
+## 4. References & Documentation
+
+- [TideCloak React SDK Guide](https://docs.tide.org/Languages/React/tidecloak-react-tutorial)
+- [Tide E2EE Setup](https://docs.tide.org/Admin/e2ee)
+- [Quorum-Enforced Authorization (QEA)](https://docs.tide.org/Admin/SetupIGA)

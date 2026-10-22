@@ -39,23 +39,23 @@ function extractPdfText(bytes: Uint8Array, fileName: string): string {
   }
   let extracted = textMatches.join(' ').replace(/\\([()\\])/g, '$1').trim();
   if (!extracted || extracted.length < 15) {
-    extracted = `[Tài liệu PDF: ${fileName} — Đã trích xuất nội dung văn bản tại trình duyệt]\nKhách hàng: Lê Gia Khánh\nCCCD: 079201002345\nSTK Vietcombank: 0071000123456\nSĐT: 0912345678\nEmail: giakhanh@rmit.edu.vn\nHồ sơ thẩm định tín dụng cá nhân và tài sản bảo đảm.\nNgười bảo lãnh: Trần Trung Hiếu\nThẩm định viên: Phạm Chấn Khoa\nNgười phê duyệt: Cái Hoàng Bảo Kin`;
+    extracted = `[PDF Document: ${fileName} — Text extracted locally in browser]\nClient Name: Lê Gia Khánh\nCCCD / National ID: 079201002345\nVietcombank Account: 0071000123456\nPhone: 0912345678\nEmail: giakhanh@rmit.edu.vn\nCredit Appraisal Dossier & Collateral Appraisal.\nGuarantor: Trần Trung Hiếu\nCredit Assessor: Phạm Chấn Khoa\nApproval Officer: Cái Hoàng Bảo Kin`;
   }
   return extracted;
 }
 
 function extractImageDocText(fileName: string): string {
-  return `[Hình ảnh tài liệu: ${fileName} — Đã trích xuất OCR cục bộ tại trình duyệt]\nKhách hàng: Lê Gia Khánh\nCCCD: 079201002345\nSTK Vietcombank: 0071000123456\nSĐT: 0912345678\nEmail: giakhanh@rmit.edu.vn\nTài liệu xác thực hình ảnh căn cước công dân / chứng từ giao dịch hợp lệ.\nNgười bảo lãnh: Trần Trung Hiếu\nThẩm định viên: Phạm Chấn Khoa\nNgười phê duyệt: Cái Hoàng Bảo Kin`;
+  return `[Image Document: ${fileName} — OCR extracted locally in browser]\nClient Name: Lê Gia Khánh\nCCCD / National ID: 079201002345\nVietcombank Account: 0071000123456\nPhone: 0912345678\nEmail: giakhanh@rmit.edu.vn\nVerified Document Copy / Transaction Slip.\nGuarantor: Trần Trung Hiếu\nCredit Assessor: Phạm Chấn Khoa\nApproval Officer: Cái Hoàng Bảo Kin`;
 }
 
 export async function readAttachment(file: File): Promise<LocalAttachment> {
   const ext = file.name.split('.').at(-1)?.toLowerCase() ?? '';
   const mediaType = SUPPORTED_TYPES[ext];
   if (!mediaType) {
-    throw new Error('Chỉ hỗ trợ file .pdf, ảnh (.png, .jpg, .webp), .txt, .csv, .md. Các định dạng thực thi hoặc nén không được phép.');
+    throw new Error('Only .pdf, images (.png, .jpg, .webp), .txt, .csv, and .md files are supported.');
   }
   if (!file.size || file.size > MAX_FILE_BYTES) {
-    throw new Error('File phải có dữ liệu và không quá 5 MiB.');
+    throw new Error('File must contain content and not exceed 5 MiB.');
   }
 
   const bytes = new Uint8Array(await file.arrayBuffer());
@@ -80,15 +80,15 @@ export async function readAttachment(file: File): Promise<LocalAttachment> {
     try {
       text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
     } catch {
-      throw new Error('File văn bản không phải UTF-8 hợp lệ.');
+      throw new Error('File is not valid UTF-8 text.');
     }
     if (!text.trim() || /[\x00-\x08\x0b\x0c\x0e-\x1f]/.test(text)) {
-      throw new Error('File rỗng hoặc chứa dữ liệu nhị phân không được hỗ trợ.');
+      throw new Error('File is empty or contains unsupported binary control characters.');
     }
   }
 
   if (text.length > MAX_INPUT_CHARS - 100) {
-    throw new Error('Nội dung file quá dài: tổng câu hỏi và file tối đa 12.000 ký tự.');
+    throw new Error('File content too large: total prompt plus file content must not exceed 12,000 characters.');
   }
 
   return {
@@ -102,8 +102,7 @@ export async function readAttachment(file: File): Promise<LocalAttachment> {
 }
 
 export function attachmentInput(prompt: string, file: LocalAttachment | null) {
-  // Do not include the raw filename in the main text to prevent confidential info leak
-  const text = file ? `${prompt}\n\n[Nội dung file đính kèm — dữ liệu tham khảo bảo mật]\n${file.text}` : prompt;
-  if (text.length > MAX_INPUT_CHARS) throw new Error('Tổng câu hỏi và file vượt 12.000 ký tự.');
+  const text = file ? `${prompt}\n\n[Confidential Attached Document Content]\n${file.text}` : prompt;
+  if (text.length > MAX_INPUT_CHARS) throw new Error('Total prompt and attachment exceed 12,000 characters.');
   return text;
 }

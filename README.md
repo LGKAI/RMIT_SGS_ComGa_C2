@@ -37,7 +37,7 @@ npm ci --ignore-scripts
 npm run dev:demo
 ```
 
-Open [http://localhost:5173](http://localhost:5173). Use a demo username such as `alice` (and `reviewer` in a second window to approve outbound requests) with any passphrase of at least 12 characters (e.g. `demo-passphrase-123`). Remember both to reopen saved conversations after reloading.
+Open [http://localhost:5173](http://localhost:5173). Switch between the 4 threat model personas: **Lê Gia Khánh** (Author/Requester), **Cái Hoàng Bảo Kin** (Security Reviewer / Dual-Control Gatekeeper), **Trần Trung Hiếu** (Cloud AI Vendor / Admin AI Auditor), and **Phạm Chấn Khoa** (Database Administrator). Passphrase requires at least 12 characters (e.g. `demo-passphrase-123`).
 
 Demo mode uses real WebCrypto `AES-256-GCM`/`HKDF-SHA256` encryption, enforced two-person approval (`alice` requests, `reviewer` approves), and encrypted persistence. **Identity and AI responses are explicitly simulated in demo mode.** The development key wrapper uses a browser-side PBKDF2 passphrase; it is not Tide, threshold cryptography, or production authentication. Use synthetic data only.
 
@@ -63,7 +63,7 @@ Copy `.env.example` to `.env` and configure your credentials locally:
 - `npm run dev:live`: Full live mode requiring licensed TideCloak realm, verified issuer/audience, PostgreSQL, and Gemini API key/model. Fails closed when configuration is missing.
 - `npm run test:tide`: Interactive Playwright smoke test for live TideCloak login, DPoP verification, and `doEncrypt`/`doDecrypt` key wrapping.
 
-See [Vietnamese instructions](README_VI.md), [Tide setup](docs/TIDE_SETUP.md), [file approval architecture](docs/FILE_APPROVAL.md), and [implementation status](docs/IMPLEMENTATION_STATUS.md).
+See [Tide setup](docs/TIDE_SETUP.md), [file approval architecture](docs/FILE_APPROVAL.md), and [implementation status](docs/IMPLEMENTATION_STATUS.md).
 
 ## Honest Limitations
 

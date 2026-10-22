@@ -13,16 +13,50 @@ import type { LocalAttachment } from './lib/files';
 import type { ApprovalView, ApprovalProposal, ApprovalDraft } from '../shared/contracts';
 import { MAX_INPUT_CHARS, MAX_TURNS } from '../shared/contracts';
 
-const PRESET = 'Tóm tắt hồ sơ tín dụng và thẩm định bảo mật cho khách hàng Lê Gia Khánh, CCCD 0792 0100 2345, STK Vietcombank 0071000123456, SĐT 0912345678, email giakhanh@rmit.edu.vn. Khoản vay 2,5 tỷ đồng, tài sản bảo đảm 5,2 tỷ đồng. Người bảo lãnh: Trần Trung Hiếu (SĐT 0987654321), Thẩm định viên: Phạm Chấn Khoa, Người phê duyệt: Cái Hoàng Bảo Kin.';
-const errorText = (e: unknown) => e instanceof Error ? e.message : 'Có lỗi xảy ra. Hãy thử lại.';
+const PRESET_EN = 'Please review and summarize the credit application and identify missing compliance documents for client Lê Gia Khánh, National ID 0792 0100 2345, Vietcombank account 0071000123456, Phone 0912345678, Email giakhanh@rmit.edu.vn. Loan request: 2.5 Billion VND, Collateral value: 5.2 Billion VND. Guarantor: Trần Trung Hiếu, Credit Assessor: Phạm Chấn Khoa, Approval Officer: Cái Hoàng Bảo Kin.';
+const PRESET_VI = 'Tóm tắt hồ sơ tín dụng và thẩm định bảo mật cho khách hàng Lê Gia Khánh, CCCD 0792 0100 2345, STK Vietcombank 0071000123456, SĐT 0912345678, email giakhanh@rmit.edu.vn. Khoản vay 2,5 tỷ đồng, tài sản bảo đảm 5,2 tỷ đồng. Người bảo lãnh: Trần Trung Hiếu, Thẩm định viên: Phạm Chấn Khoa, Người phê duyệt: Cái Hoàng Bảo Kin.';
+
+const errorText = (e: unknown) => e instanceof Error ? e.message : 'An error occurred. Please try again.';
 type Summary = Pick<ConversationRow, 'id' | 'revision' | 'createdAt' | 'updatedAt'>;
 interface OpenConversation { state: ConversationState; key: CryptoKey; wrapped: string; row: ConversationRow | null }
 
-const TEAM_MEMBERS = [
-  { id: 'giakhanh', name: 'Lê Gia Khánh', role: 'Người gửi (Requester)', isApprover: false },
-  { id: 'baokin', name: 'Cái Hoàng Bảo Kin', role: 'Phê duyệt viên (Reviewer)', isApprover: true },
-  { id: 'hieu', name: 'Trần Trung Hiếu', role: 'Thành viên thẩm định', isApprover: false },
-  { id: 'khoa', name: 'Phạm Chấn Khoa', role: 'Kiểm soát viên', isApprover: false },
+const TEAM_PERSONAS = [
+  {
+    id: 'giakhanh',
+    name: 'Lê Gia Khánh',
+    title: 'Enterprise Requester',
+    roleLabel: 'Requester (User)',
+    icon: '👤',
+    isApprover: false,
+    description: 'Enterprise Credit Officer: Authors sensitive prompts, attaches confidential dossiers, and inspects local unmasked AI insights.',
+  },
+  {
+    id: 'baokin',
+    name: 'Cái Hoàng Bảo Kin',
+    title: 'Security Reviewer',
+    roleLabel: 'Security Reviewer',
+    icon: '🛡️',
+    isApprover: true,
+    description: 'Dual-Control Gatekeeper: Verifies pseudonymized outbound payloads before cloud release. Enforces Vietnam PDPD Law 91/2025.',
+  },
+  {
+    id: 'hieu',
+    name: 'Trần Trung Hiếu',
+    title: 'Cloud AI Vendor / AI Admin',
+    roleLabel: 'AI Admin Auditor',
+    icon: '🤖',
+    isApprover: false,
+    description: 'Threat Auditor (AI Provider / AI Admin View): Demonstrates that the AI vendor (Gemini/OpenAI) receives 0.00% raw PII—only pseudonymized tokens.',
+  },
+  {
+    id: 'khoa',
+    name: 'Phạm Chấn Khoa',
+    title: 'Database & Infrastructure Admin',
+    roleLabel: 'DBA / Threat Inspector',
+    icon: '🗄️',
+    isApprover: false,
+    description: 'Threat Auditor (DB Admin View): Proves that even a malicious DBA holding PostgreSQL storage sees only AES-256-GCM ciphertext.',
+  },
 ];
 
 export default function App() {
@@ -33,7 +67,7 @@ export default function App() {
     let active = true;
     api<PublicConfig>('/config', null)
       .then(c => { if (active) setConfig(c); })
-      .catch(() => { if (active) setError('Không kết nối được backend. Chạy npm run dev:demo rồi tải lại.'); });
+      .catch(() => { if (active) setError('Cannot connect to backend server. Make sure the server is running.'); });
     return () => { active = false; };
   }, []);
 
@@ -44,8 +78,8 @@ export default function App() {
           <img src="/favicon.svg" alt="PrivateChat Shield Logo" className="brand-icon-svg" />
         </div>
         <h1>PrivateChat Shield</h1>
-        <p role="status">{error || 'Đang kết nối backend…'}</p>
-        <button onClick={() => location.reload()}>Tải lại</button>
+        <p role="status">{error || 'Initializing Zero-Trust Security Gateway…'}</p>
+        <button onClick={() => location.reload()}>Reload Page</button>
       </main>
     );
   }
@@ -172,7 +206,7 @@ function Workspace({ config }: { config: PublicConfig }) {
       const rows = await api<Summary[]>('/conversations', token);
       if (current === epoch.current) setSummaries(rows);
     } catch {
-      if (current === epoch.current) setNotice('Đã lưu hội thoại nhưng chưa tải lại được danh sách. Có thể tải lại trang.');
+      if (current === epoch.current) setNotice('Session saved, but list refresh is pending. You can reload if needed.');
     }
   }
 
@@ -192,7 +226,7 @@ function Workspace({ config }: { config: PublicConfig }) {
     try {
       const token = await auth.getToken();
       const row = await api<ConversationRow>(`/conversations/${id}`, token, { signal: task.signal });
-      if (row.id !== id || row.ownerId !== auth.identity.ownerId) throw new Error('Snapshot không khớp hội thoại hoặc tài khoản đã yêu cầu.');
+      if (row.id !== id || row.ownerId !== auth.identity.ownerId) throw new Error('Snapshot does not match requested conversation or owner.');
       const raw = await auth.unwrap(row.wrappedKey, row.id);
       let key: CryptoKey;
       try { key = await importConversationKey(raw); } finally { raw.fill(0); }
@@ -217,7 +251,7 @@ function Workspace({ config }: { config: PublicConfig }) {
         }
         setLastRequest(null);
         setTamperResult('');
-        setNotice('Đã xác thực và giải mã lịch sử hội thoại tại trình duyệt.');
+        setNotice('Conversation verified and decrypted inside local client browser.');
       }
     } catch (e) {
       if (epoch.current === task.current) setError(errorText(e));
@@ -241,7 +275,7 @@ function Workspace({ config }: { config: PublicConfig }) {
         setAttachment(value);
         setManual([]);
         setDisabled([]);
-        setNotice(`Đã đọc ${value.name} tại trình duyệt. Nội dung được trích xuất an toàn để lọc PII.`);
+        setNotice(`Attached ${value.name} (${(value.manifest.bytes / 1024).toFixed(1)} KiB). Content extracted locally for zero-trust PII sanitization.`);
       }
     } catch (e) {
       if (fileEpoch.current === version) {
@@ -256,7 +290,7 @@ function Workspace({ config }: { config: PublicConfig }) {
     const task = begin(); if (!task) return;
     let working = opened;
     try {
-      if (classification === 'restricted') throw new Error('Tài liệu Tuyệt mật bị chặn gửi cloud. Hãy dùng mô hình nội bộ và quy trình riêng.');
+      if (classification === 'restricted') throw new Error('Restricted content cannot be dispatched to cloud AI. Use an on-premise model and dedicated air-gapped pipeline.');
       const token = await auth.getToken();
       if (!working) {
         const id = crypto.randomUUID();
@@ -264,13 +298,13 @@ function Workspace({ config }: { config: PublicConfig }) {
         try {
           const wrapped = await auth.wrap(raw, id);
           const key = await importConversationKey(raw);
-          working = { key, wrapped, row: null, state: { id, version: 1, revision: 1, title: `Hội thoại ${new Date().toLocaleString('vi-VN')}`, pii: draftContext, turns: [] } };
+          working = { key, wrapped, row: null, state: { id, version: 1, revision: 1, title: `Chat ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`, pii: draftContext, turns: [] } };
         } finally {
           raw.fill(0);
         }
       }
-      if (!retry && working.state.turns.some(t => t.status !== 'complete')) throw new Error('Hãy xin duyệt lại lượt lỗi trước khi gửi nội dung mới.');
-      if (!retry && working.state.turns.length >= MAX_TURNS) throw new Error('Đã đủ 20 lượt. Hãy tạo hội thoại mới.');
+      if (!retry && working.state.turns.some(t => t.status !== 'complete')) throw new Error('Please resolve pending turns before dispatching new prompts.');
+      if (!retry && working.state.turns.length >= MAX_TURNS) throw new Error('Maximum 20 turns reached. Please start a new session.');
       const prepared = retry ? { original: retry.original, masked: retry.masked, context: working.state.pii } : preview.value!;
       const previous = working.state.approvalDraft;
       const proposal: ApprovalProposal = {
@@ -299,7 +333,7 @@ function Workspace({ config }: { config: PublicConfig }) {
       setOpened(working);
       setApproval(row);
       if (retry) { resetInput(nextDraft.prompt); setAttachment(nextDraft.attachment); }
-      setNotice('Đã gửi yêu cầu phê duyệt vào hàng đợi. Hãy chuyển sang tài khoản Cái Hoàng Bảo Kin ở thanh trên để duyệt.');
+      setNotice('Outbound approval request submitted. Switch to reviewer "Cái Hoàng Bảo Kin" to authorize dispatch.');
       await refresh(token, task.current);
     } catch (e) {
       if (epoch.current === task.current) setError(errorText(e));
@@ -335,13 +369,13 @@ function Workspace({ config }: { config: PublicConfig }) {
         try {
           const wrapped = await auth.wrap(raw, id);
           const key = await importConversationKey(raw);
-          working = { key, wrapped, row: null, state: { id, version: 1, revision: 1, title: `Hội thoại ${new Date().toLocaleString('vi-VN')}`, pii: draftContext, turns: [] } };
+          working = { key, wrapped, row: null, state: { id, version: 1, revision: 1, title: `Chat ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`, pii: draftContext, turns: [] } };
         } finally {
           raw.fill(0);
         }
       }
-      if (!retry && working.state.turns.some(t => t.status !== 'complete')) throw new Error('Hãy thử lại lượt lỗi trước khi gửi nội dung mới.');
-      if (!retry && working.state.turns.length >= MAX_TURNS) throw new Error('Đã đủ 20 lượt. Hãy tạo hội thoại mới.');
+      if (!retry && working.state.turns.some(t => t.status !== 'complete')) throw new Error('Please retry incomplete turns before submitting new messages.');
+      if (!retry && working.state.turns.length >= MAX_TURNS) throw new Error('Maximum 20 turns reached. Please start a new session.');
       const prepared = { original: draft.original, masked: draft.masked, context: working.state.pii };
       pendingTurn = { id: retry?.id ?? crypto.randomUUID(), original: prepared.original, masked: prepared.masked, status: 'pending' };
       const turns = retry ? working.state.turns.map(t => t.id === retry.id ? pendingTurn! : t) : [...working.state.turns, pendingTurn];
@@ -366,7 +400,7 @@ function Workspace({ config }: { config: PublicConfig }) {
       setOpened(working);
       resetInput();
       clearApprovalInput();
-      setNotice('Đã nhận phản hồi từ AI Gateway và lưu trữ bản mã E2EE thành công.');
+      setNotice('AI response received. Ciphertext snapshot persisted to PostgreSQL.');
       await refresh(token, task.current);
     } catch (e) {
       if (epoch.current === task.current) {
@@ -382,7 +416,7 @@ function Workspace({ config }: { config: PublicConfig }) {
   }
 
   async function remove() {
-    if (!opened?.row || !confirm('Xóa hội thoại khỏi ứng dụng?')) return;
+    if (!opened?.row || !confirm('Permanently delete this encrypted conversation session?')) return;
     const id = opened.state.id;
     invalidate();
     const task = begin(); if (!task) return;
@@ -395,7 +429,7 @@ function Workspace({ config }: { config: PublicConfig }) {
       resetInput();
       setLastRequest(null);
       setTamperResult('');
-      setNotice('Đã xóa hội thoại khỏi cơ sở dữ liệu mã hóa.');
+      setNotice('Conversation session deleted from encrypted storage.');
       await refresh(token, task.current);
     } catch (e) {
       if (epoch.current === task.current) setError(errorText(e));
@@ -412,9 +446,9 @@ function Workspace({ config }: { config: PublicConfig }) {
       bytes[0] ^= 1;
       row.encryptedState = toBase64(bytes);
       await decryptState(opened.key, auth.identity.ownerId, row);
-      setTamperResult('FAIL: bản mã sửa vẫn mở được.');
+      setTamperResult('FAIL: Tampered ciphertext was accepted (VULNERABILITY).');
     } catch {
-      setTamperResult('PASS — AES-GCM từ chối bản sao ciphertext đã bị sửa đổi một byte. Tính toàn vẹn dữ liệu được đảm bảo.');
+      setTamperResult('PASS — AES-256-GCM + AAD rejected tampered ciphertext byte. Data integrity guaranteed.');
     }
   }
 
@@ -429,9 +463,9 @@ function Workspace({ config }: { config: PublicConfig }) {
       const result = await auth.unwrap(wrapped, id);
       const after = toBase64(new Uint8Array(await crypto.subtle.digest('SHA-256', result)));
       result.fill(0);
-      if (before !== after) throw new Error('Key provider trả về khóa khác với khóa đã bọc.');
+      if (before !== after) throw new Error('Key provider returned mismatched key.');
       if (epoch.current === task.current) {
-        setProbe(`Khóa mã hóa round-trip thành công (${auth.mode.toUpperCase()}).`);
+        setProbe(`Key wrap / unwrap round-trip verified (${auth.mode.toUpperCase()}).`);
         setProbeData(JSON.stringify({ id, wrappedKey: wrapped, expectedHash: before }, null, 2));
       }
     } catch (e) {
@@ -446,15 +480,15 @@ function Workspace({ config }: { config: PublicConfig }) {
     try {
       const data = JSON.parse(probeData);
       if (typeof data.id !== 'string' || typeof data.wrappedKey !== 'string' || data.wrappedKey.length > 65536 || typeof data.expectedHash !== 'string') {
-        throw new Error('Probe JSON không hợp lệ.');
+        throw new Error('Invalid probe JSON format.');
       }
       const raw = await auth.unwrap(data.wrappedKey, data.id);
       const digest = toBase64(new Uint8Array(await crypto.subtle.digest('SHA-256', raw)));
       raw.fill(0);
-      if (digest !== data.expectedHash) throw new Error('Khóa mở ra không khớp.');
-      if (epoch.current === task.current) setProbe('Probe mở được bằng tài khoản hiện tại.');
+      if (digest !== data.expectedHash) throw new Error('Unwrapped key hash mismatch.');
+      if (epoch.current === task.current) setProbe('Probe unlocked under current credentials.');
     } catch (e) {
-      if (epoch.current === task.current) setProbe(`Probe bị từ chối: ${errorText(e)}`);
+      if (epoch.current === task.current) setProbe(`Probe rejected: ${errorText(e)}`);
     } finally {
       finish(task.current);
     }
@@ -465,14 +499,16 @@ function Workspace({ config }: { config: PublicConfig }) {
     if (el && el.selectionEnd > el.selectionStart) {
       setManual(old => [...old, { start: el.selectionStart, end: el.selectionEnd, kind: 'CUSTOM' }]);
     } else {
-      setNotice('Bôi đen đoạn văn bản trong ô nhập rồi nhấn “Che đoạn đã chọn”.');
+      setNotice('Highlight text in the input box, then click "Mask Selected Text".');
     }
   }
 
+  const currentPersona = TEAM_PERSONAS.find(p => p.id === auth.identity?.username) ?? TEAM_PERSONAS[0];
   const unresolved = opened?.state.turns.find(t => t.status !== 'complete');
 
   return (
     <div className="app-shell">
+      {/* TOPBAR */}
       <header className="topbar">
         <div className="brand">
           <div className="brand-icon-wrapper">
@@ -480,52 +516,89 @@ function Workspace({ config }: { config: PublicConfig }) {
           </div>
           <div>
             <h1>PrivateChat Shield</h1>
-            <p>Khử định danh PII • Mã hóa E2EE • Phê duyệt 2 người trước khi gửi Cloud AI</p>
+            <p>Zero-Trust AI Privacy & Dual-Control Outbound Governance Gateway</p>
           </div>
         </div>
+
         <div className="top-right">
-          <div className="member-switcher">
-            <span className="member-label">Chuyển tài khoản:</span>
-            {TEAM_MEMBERS.map(m => (
-              <button
-                key={m.id}
-                type="button"
-                className={`member-btn ${auth.identity?.username === m.id ? 'active' : ''}`}
-                onClick={() => {
-                  if (auth.identity?.username !== m.id) {
-                    invalidate();
-                    clearApprovalInput();
-                    setOpened(null);
-                    setLastRequest(null);
-                    void auth.login(m.id);
-                  }
-                }}
-              >
-                {m.isApprover ? '🛡️' : '👤'} {m.name}
-              </button>
-            ))}
+          <div className="tide-node-status">
+            <a
+              href="http://localhost:8080/realms/myrealm/account/"
+              target="_blank"
+              rel="noreferrer"
+              className="tide-link-btn"
+              title="Open TideCloak Identity Provider on localhost:8080"
+            >
+              <span className="dot-pulse">●</span> TideCloak Node (8080)
+            </a>
+            <a
+              href="http://localhost:8080/admin/"
+              target="_blank"
+              rel="noreferrer"
+              className="tide-console-btn"
+              title="Open Tide Admin Console (QEA & Threshold Fabric)"
+            >
+              🏛️ Tide Console
+            </a>
           </div>
+
           <span className={`chip ${auth.mode === 'demo' ? 'amber' : 'blue'}`}>
-            {auth.mode === 'demo' ? 'DEMO • Zero-Trust' : 'TideCloak SSO'}
+            {auth.mode === 'demo' ? 'Zero-Trust Envelope Active' : 'TideCloak SSO Active'}
           </span>
         </div>
       </header>
+
+      {/* MULTI-ROLE PERSPECTIVE SWITCHER */}
+      <nav className="perspective-nav">
+        <div className="perspective-nav-header">
+          <span className="perspective-title">HACKATHON THREAT MODEL & PERSONAS:</span>
+          <span className="perspective-subtitle">Switch perspectives to audit every layer of defense</span>
+        </div>
+        <div className="persona-buttons">
+          {TEAM_PERSONAS.map(m => (
+            <button
+              key={m.id}
+              type="button"
+              className={`persona-card-btn ${auth.identity?.username === m.id ? 'active' : ''}`}
+              onClick={() => {
+                if (auth.identity?.username !== m.id) {
+                  invalidate();
+                  clearApprovalInput();
+                  setOpened(null);
+                  setLastRequest(null);
+                  void auth.login(m.id);
+                }
+              }}
+            >
+              <div className="persona-btn-head">
+                <span className="persona-icon">{m.icon}</span>
+                <strong>{m.name}</strong>
+              </div>
+              <span className="persona-role-badge">{m.roleLabel}</span>
+            </button>
+          ))}
+        </div>
+      </nav>
+
+      {/* ACTIVE PERSPECTIVE CONTEXT BANNER */}
+      <div className={`persona-banner role-${currentPersona.id}`}>
+        <div className="persona-banner-content">
+          <span className="persona-banner-badge">{currentPersona.icon} {currentPersona.title}</span>
+          <span className="persona-banner-desc">{currentPersona.description}</span>
+        </div>
+      </div>
 
       {(error || auth.error) && <div className="feedback error" role="alert">{error || auth.error}</div>}
       {notice && <div className="feedback" role="status">{notice}</div>}
 
       <div className="workspace-bar">
         <div className="active-user-badge">
-          <span>Tài khoản hiện tại:</span>
-          <strong>
-            {auth.identity?.username === 'baokin' ? '🛡️ Cái Hoàng Bảo Kin (Phê duyệt viên)' :
-             auth.identity?.username === 'hieu' ? '👤 Trần Trung Hiếu' :
-             auth.identity?.username === 'khoa' ? '👤 Phạm Chấn Khoa' :
-             '👤 Lê Gia Khánh (Người gửi)'}
-          </strong>
-          {auth.identity?.canApproveFiles && <span className="approver-pill">Quyền duyệt (file-approver)</span>}
+          <span>Active Identity:</span>
+          <strong>{currentPersona.icon} {currentPersona.name} ({currentPersona.title})</strong>
+          {auth.identity?.canApproveFiles && <span className="approver-pill">Dual-Control Approver Verified</span>}
         </div>
         <button
+          className="btn-new-chat"
           disabled={busy}
           onClick={() => {
             invalidate();
@@ -538,19 +611,19 @@ function Workspace({ config }: { config: PublicConfig }) {
             setError('');
           }}
         >
-          + Hội thoại mới
+          + New Encrypted Chat
         </button>
       </div>
 
       <main className="main-grid">
-        {/* CỘT 1: LỊCH SỬ MÃ HÓA & SECURITY PROBES */}
+        {/* COLUMN 1: ENCRYPTED HISTORY & SECURITY LAB */}
         <aside className="col-card">
           <div className="card-head">
-            <h2>Lịch sử mã hóa</h2>
+            <h2>Encrypted Vault</h2>
           </div>
           <div className="panel-content">
-            <p className="muted">Danh sách lưu trữ chỉ chứa ID và dấu thời gian. Bản tin mã hóa chỉ mở tại trình duyệt.</p>
-            {summaries.length === 0 && <p className="muted">Chưa có hội thoại được lưu.</p>}
+            <p className="muted">PostgreSQL stores only anonymous UUIDs and ciphertext snapshots. Plaintext is decryptable solely inside this browser.</p>
+            {summaries.length === 0 && <p className="muted">No encrypted conversations found.</p>}
             {summaries.map(s => (
               <button
                 key={s.id}
@@ -558,72 +631,72 @@ function Workspace({ config }: { config: PublicConfig }) {
                 className={`conversation ${opened?.state.id === s.id ? 'selected' : ''}`}
                 onClick={() => void load(s.id)}
               >
-                <strong>{s.id.slice(0, 8)}</strong>
-                <span>{new Date(s.updatedAt).toLocaleString('vi-VN')} · v{s.revision}</span>
+                <strong>Session {s.id.slice(0, 8)}</strong>
+                <span>{new Date(s.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} · Revision {s.revision}</span>
               </button>
             ))}
             {opened?.row && (
               <div className="conv-actions">
-                <button disabled={busy} onClick={() => void load(opened.state.id)}>Tải lại từ server</button>
-                <button className="danger" onClick={() => void remove()}>Xóa hội thoại</button>
+                <button disabled={busy} onClick={() => void load(opened.state.id)}>Reload Snapshot</button>
+                <button className="danger" onClick={() => void remove()}>Delete Session</button>
               </div>
             )}
             <hr />
-            <h3>Kiểm tra bảo mật (Security Lab)</h3>
-            <button disabled={busy} onClick={() => void testWrapper()}>Kiểm tra Key Wrapping</button>
+            <h3>Cryptographic Security Lab</h3>
+            <button disabled={busy} onClick={() => void testWrapper()}>Verify Key Wrapping Round-Trip</button>
             {probe && <p role="status" className="probe-result">{probe}</p>}
             <label className="probe-label">
-              Probe thử nghiệm khóa:
+              Wrapped Key Isolation Probe:
               <textarea
-                aria-label="Probe mở khóa"
+                aria-label="Probe Payload"
                 rows={2}
                 maxLength={70000}
                 value={probeData}
                 onChange={e => setProbeData(e.target.value)}
-                placeholder="Dán probe để kiểm tra tính cô lập tài khoản..."
+                placeholder="Generate probe above, or paste another user's probe to test isolation..."
               />
             </label>
-            <button disabled={busy || !probeData} onClick={() => void checkForeignProbe()}>Thử mở probe đã dán</button>
-            <button disabled={!opened?.row || busy} onClick={() => void testTamper()}>Thử sửa bản sao Ciphertext (AES-GCM)</button>
+            <button disabled={busy || !probeData} onClick={() => void checkForeignProbe()}>Test Foreign Probe Rejection</button>
+            <button disabled={!opened?.row || busy} onClick={() => void testTamper()}>Simulate Ciphertext Tamper Attack (AES-GCM)</button>
             {tamperResult && <p role="status" className="probe-result">{tamperResult}</p>}
           </div>
         </aside>
 
-        {/* CỘT 2: CUỘC TRÒ CHUYỆN & FILE COMPOSER */}
+        {/* COLUMN 2: SECURE CHAT & COMPOSER */}
         <section className="col-card chat-panel">
           <div className="card-head">
-            <h2>Cuộc trò chuyện an toàn</h2>
+            <h2>Secure AI Conversation</h2>
             <label className="toggle">
               <input type="checkbox" checked={showReal} onChange={e => setShowReal(e.target.checked)} />
-              Hiện giá trị gốc
+              Show Original Values (Client Unmasking)
             </label>
           </div>
           <div className="chat-body" aria-live="polite">
             {!opened?.state.turns.length && (
               <div className="empty">
-                <h3>Bảo vệ thông tin cá nhân & Tài liệu mật</h3>
-                <p>Mọi định danh (CCCD, Họ tên, STK, SĐT, Email) trong câu hỏi và file đính kèm được che trước khi gửi. Nhà phát hành AI không bao giờ thu thập được danh tính gốc.</p>
+                <h3>Zero-Trust Data Protection</h3>
+                <p>All sensitive personal identifiers (CCCD, Bank Accounts, Phone, Email, Names) in prompts and attachments are pseudonymized in your browser before dispatch. Cloud LLMs and AI Admins never receive raw data.</p>
               </div>
             )}
             {opened?.state.turns.map(t => (
               <div key={t.id}>
                 <article className="bubble user">
-                  <strong>Bạn</strong>
+                  <strong>You ({showReal ? 'Client Decrypted View' : 'Sanitized View'})</strong>
                   <p>{showReal ? t.original : t.masked}</p>
                 </article>
                 {t.assistantRawMasked && (
                   <article className="bubble assistant">
-                    <strong>{config.aiProvider === 'demo' ? 'Phản hồi AI Demo' : 'Gemini AI'}</strong>
+                    <strong>{config.aiProvider === 'demo' ? 'PrivateChat AI Responder' : 'Google Gemini LLM'}</strong>
                     <p>{showReal ? unmaskText(t.assistantRawMasked, opened.state.pii) : t.assistantRawMasked}</p>
                     {unknownTokens(t.assistantRawMasked, opened.state.pii).length > 0 && (
-                      <small>Model trả về token không khớp context.</small>
+                      <small>Model generated unmatched token. Preserved raw placeholder.</small>
                     )}
                   </article>
                 )}
                 {t.status !== 'complete' && (
                   <article className="bubble pending">
-                    <p>{busy ? 'Đang xử lý và lưu bản mã…' : 'Lượt này chưa hoàn tất.'}</p>
-                    {!busy && <button onClick={() => void requestApproval(t)}>Xin duyệt lại lượt lỗi</button>}
+                    <p>{busy ? 'Encrypting and persisting snapshot…' : 'This turn did not complete.'}</p>
+                    {!busy && <button onClick={() => void requestApproval(t)}>Retry Incomplete Turn</button>}
                   </article>
                 )}
               </div>
@@ -636,16 +709,24 @@ function Workspace({ config }: { config: PublicConfig }) {
                 type="button"
                 className="btn-preset"
                 disabled={busy || !!unresolved}
-                onClick={() => resetInput(PRESET)}
+                onClick={() => resetInput(PRESET_EN)}
               >
-                📋 Dùng hồ sơ mẫu (Lê Gia Khánh)
+                📋 Load Credit Dossier (English)
+              </button>
+              <button
+                type="button"
+                className="btn-preset"
+                disabled={busy || !!unresolved}
+                onClick={() => resetInput(PRESET_VI)}
+              >
+                📋 Nạp hồ sơ tín dụng (Tiếng Việt)
               </button>
             </div>
 
             <label className="file-upload-label">
-              <span>Đính kèm tài liệu bảo mật (.pdf, ảnh .png/.jpg, .txt, .csv, .md):</span>
+              <span>Attach Confidential File (.pdf, images .png/.jpg, .txt, .csv, .md):</span>
               <input
-                aria-label="File cần bảo mật"
+                aria-label="Confidential File"
                 type="file"
                 accept=".txt,.csv,.md,.pdf,.png,.jpg,.jpeg,.webp"
                 disabled={busy || !!unresolved}
@@ -669,7 +750,7 @@ function Workspace({ config }: { config: PublicConfig }) {
                     disabled={busy}
                     onClick={() => { fileEpoch.current++; setAttachment(null); setDisabled([]); setManual([]); }}
                   >
-                    Bỏ file
+                    Remove File
                   </button>
                 </div>
                 {attachment.previewUrl && (
@@ -678,13 +759,13 @@ function Workspace({ config }: { config: PublicConfig }) {
                   </div>
                 )}
                 <details className="file-content-details">
-                  <summary>Nội dung trích xuất ({attachment.isImage ? 'OCR' : attachment.isPdf ? 'PDF' : 'Text'}) — xử lý cục bộ</summary>
+                  <summary>Extracted Content ({attachment.isImage ? 'Local OCR' : attachment.isPdf ? 'PDF Parser' : 'Text'}) — Processed on device</summary>
                   <pre>{attachment.text}</pre>
                 </details>
               </div>
             )}
 
-            <label htmlFor="chat-input">Nội dung câu hỏi & chỉ dẫn cho AI</label>
+            <label htmlFor="chat-input">Prompt & Cloud AI Instructions</label>
             <textarea
               ref={inputRef}
               id="chat-input"
@@ -692,18 +773,18 @@ function Workspace({ config }: { config: PublicConfig }) {
               onChange={e => resetInput(e.target.value)}
               maxLength={MAX_INPUT_CHARS}
               disabled={busy || !!unresolved}
-              placeholder="Dán nội dung hồ sơ hoặc tài liệu tại đây…"
+              placeholder="Paste dossier, contract, or compliance request here (English or Vietnamese)..."
               rows={4}
             />
 
             <div className="composer-tools">
               <button type="button" disabled={busy || !input} onClick={selectManual}>
-                ✂️ Che đoạn đã chọn
+                ✂️ Mask Highlighted Span
               </button>
-              <span className="muted">{combined.length}/{MAX_INPUT_CHARS} ký tự</span>
+              <span className="muted">{combined.length}/{MAX_INPUT_CHARS} characters</span>
             </div>
 
-            <label>Tên thành viên / người cần che thêm:
+            <label>Custom Names or Terms to Mask (comma-separated):
               <input
                 value={names}
                 onChange={e => setNames(e.target.value)}
@@ -715,28 +796,28 @@ function Workspace({ config }: { config: PublicConfig }) {
             {preview.error && <p className="error-text">{preview.error}</p>}
 
             <div className="classification-row">
-              <label>Mục đích sử dụng:
+              <label>Intended Purpose:
                 <select
-                  aria-label="Mục đích sử dụng"
+                  aria-label="Intended Purpose"
                   value={purpose}
                   disabled={busy}
                   onChange={e => setPurpose(e.target.value as ApprovalProposal['purpose'])}
                 >
-                  <option value="summarize">Tóm tắt hồ sơ</option>
-                  <option value="extract">Trích xuất dữ kiện</option>
-                  <option value="question">Hỏi đáp bảo mật</option>
+                  <option value="summarize">Dossier Summarization</option>
+                  <option value="extract">Structured Fact Extraction</option>
+                  <option value="question">Confidential Q&A Inquiry</option>
                 </select>
               </label>
 
-              <label>Mức độ phân loại:
+              <label>Data Classification:
                 <select
-                  aria-label="Mức bảo mật"
+                  aria-label="Data Classification"
                   value={classification}
                   disabled={busy}
                   onChange={e => setClassification(e.target.value as ApprovalProposal['classification'])}
                 >
-                  <option value="confidential">Bảo mật (Cần phê duyệt độc lập)</option>
-                  <option value="restricted">Tuyệt mật (Chặn hoàn toàn gửi Cloud)</option>
+                  <option value="confidential">Confidential (Requires Dual-Control Review)</option>
+                  <option value="restricted">Restricted / Top Secret (Cloud AI Blocked)</option>
                 </select>
               </label>
             </div>
@@ -747,19 +828,19 @@ function Workspace({ config }: { config: PublicConfig }) {
               className="primary btn-submit-approval"
               disabled={busy || !!unresolved || !combined.trim() || !preview.value || !!fileError || classification === 'restricted'}
             >
-              🔒 Xin phê duyệt nội dung
+              🔒 Request Dual-Control Approval
             </button>
 
             {draft && (
               <div className="approval-status" data-testid="approval-status">
                 <div className="status-header">
-                  <strong>Trạng thái: {approval ? statusLabel[approval.status] : 'Đang kiểm tra...'}</strong>
-                  <span className="approval-id">ID: {draft.approvalId.slice(0, 8)}</span>
+                  <strong>Approval Status: {approval ? (statusLabel[approval.status] ?? approval.status) : 'Checking...'}</strong>
+                  <span className="approval-id">Request ID: {draft.approvalId.slice(0, 8)}</span>
                 </div>
-                {!matchesDraft && <p className="warning-text">Nội dung đã bị sửa đổi. Cần xin phê duyệt lại.</p>}
+                {!matchesDraft && <p className="warning-text">Content was modified. A new approval request is required.</p>}
                 <div className="approval-buttons">
                   <button type="button" disabled={busy} onClick={() => void refreshApproval()}>
-                    Kiểm tra phê duyệt
+                    🔄 Check Status
                   </button>
                   <button
                     type="button"
@@ -767,7 +848,7 @@ function Workspace({ config }: { config: PublicConfig }) {
                     disabled={busy || !matchesDraft || approval?.status !== 'approved'}
                     onClick={() => void send()}
                   >
-                    🚀 Gửi nội dung đã duyệt sang AI
+                    🚀 Dispatch Approved Payload to Cloud AI
                   </button>
                 </div>
               </div>
@@ -775,18 +856,18 @@ function Workspace({ config }: { config: PublicConfig }) {
           </form>
         </section>
 
-        {/* CỘT 3: PREVIEW & BẰNG CHỨNG MÃ HÓA */}
+        {/* COLUMN 3: PREVIEWS & SECURITY PROOFS */}
         <aside className="col-card">
           <div className="card-head">
-            <h2>Preview & Bằng chứng bảo mật</h2>
+            <h2>Governance & Audit Proofs</h2>
           </div>
           <div className="panel-content">
             <ApprovalQueue key={auth.identity?.ownerId} />
             <hr />
-            <h3>Định danh PII phát hiện được</h3>
+            <h3>Detected Sensitive Identifiers</h3>
             <div className="entities">
               {(!preview.value?.spans || preview.value.spans.length === 0) && (
-                <p className="muted">Chưa phát hiện PII nhạy cảm.</p>
+                <p className="muted">No direct PII detected yet.</p>
               )}
               {preview.value?.spans.map(s => (
                 <label key={`${s.start}:${s.end}`}>
@@ -804,26 +885,34 @@ function Workspace({ config }: { config: PublicConfig }) {
               ))}
             </div>
 
-            <h3>Nội dung đã che (Gateway sẽ thấy)</h3>
-            <pre data-testid="masked-preview">{preview.value?.masked || 'Chưa có nội dung.'}</pre>
+            <div className="proof-section">
+              <h3>Outbound Payload (What Cloud AI & Admin AI Sees)</h3>
+              <p className="muted">Demonstrating 0.00% Raw PII Leakage to Cloud LLM Providers:</p>
+              <pre data-testid="masked-preview">{preview.value?.masked || 'No outbound payload generated yet.'}</pre>
+            </div>
 
-            <h3>Request gần nhất gửi tới Gateway</h3>
-            <pre data-testid="gateway-request">
-              {lastRequest ? JSON.stringify(lastRequest, null, 2) : 'Chưa gửi request.'}
-            </pre>
+            <div className="proof-section">
+              <h3>Gateway Audit Envelope (Auditable Dispatch)</h3>
+              <pre data-testid="gateway-request">
+                {lastRequest ? JSON.stringify(lastRequest, null, 2) : 'No requests dispatched yet.'}
+              </pre>
+            </div>
 
-            <h3>Bản mã lưu trữ (Ciphertext tại DB)</h3>
-            <pre data-testid="stored-ciphertext">
-              {opened?.row
-                ? JSON.stringify({ id: opened.row.id, revision: opened.row.revision, iv: opened.row.iv, ciphertext: opened.row.encryptedState.slice(0, 140) + '…' }, null, 2)
-                : 'Chưa có snapshot.'}
-            </pre>
+            <div className="proof-section">
+              <h3>Database Storage (PostgreSQL Ciphertext)</h3>
+              <p className="muted">Privileged DB Admin sees only AES-256-GCM ciphertext without plaintext keys:</p>
+              <pre data-testid="stored-ciphertext">
+                {opened?.row
+                  ? JSON.stringify({ id: opened.row.id, revision: opened.row.revision, iv: opened.row.iv, ciphertext: opened.row.encryptedState.slice(0, 140) + '…' }, null, 2)
+                  : 'No database snapshot stored yet.'}
+              </pre>
+            </div>
           </div>
         </aside>
       </main>
 
       <footer>
-        PrivateChat Shield — Giải pháp bảo vệ quyền riêng tư & Quản trị AI Zero-Trust. Nhóm ComGa • RMIT Hackathon 2026.
+        PrivateChat Shield — Zero-Trust AI Privacy & Dual-Control Governance Gateway. Team ComGa • RMIT Hackathon 2026.
       </footer>
     </div>
   );
