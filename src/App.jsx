@@ -24,6 +24,10 @@ export default function App() {
   // Emergent Authority Token (15-min temporary grant)
   const [activeToken, setActiveToken] = useState(false);
 
+  // File / Document Attachment State
+  const [attachedFile, setAttachedFile] = useState(null);
+  const fileInputRef = useRef(null);
+
   // Chat State
   const [messages, setMessages] = useState(vaultData.defaultChatHistory);
   const [inputVal, setInputVal] = useState("");
@@ -135,6 +139,30 @@ export default function App() {
     });
   }
 
+  // File Upload Handlers
+  function handleFileUpload(e) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const isConfidential = /cv|resume|contract|m&a|passport|cmnd|cccd|financial|statement|bank|bệnh án|hồ sơ/i.test(file.name);
+    setAttachedFile({
+      name: file.name,
+      size: `${Math.round(file.size / 1024) || 240} KB`,
+      type: file.type || "application/pdf",
+      isConfidential
+    });
+    showToast(`Attached "${file.name}" (${isConfidential ? "Confidential Asset" : "Standard File"})`);
+  }
+
+  function handleAttachPreset(name, size = "245 KB", isConfidential = true) {
+    setAttachedFile({
+      name,
+      size,
+      type: "application/pdf",
+      isConfidential
+    });
+    showToast(`Attached sample "${name}" (Confidential Asset)`);
+  }
+
   // Select sample preset prompt
   function selectPreset(presetText) {
     setInputVal(presetText);
@@ -143,15 +171,18 @@ export default function App() {
   // Send Chat Message
   function handleSendMessage(e) {
     e?.preventDefault();
-    if (!inputVal.trim() || isShredded) return;
+    if ((!inputVal.trim() && !attachedFile) || isShredded) return;
 
-    const raw = inputVal;
+    const raw = inputVal || (attachedFile ? `Phân tích tài liệu đính kèm: ${attachedFile.name}` : "");
     const scan = detectAndMaskPII(raw);
+    const currentAttachment = attachedFile;
+    setAttachedFile(null);
 
     const userMsg = {
       id: `msg-${Date.now()}`,
       sender: "user",
       text: raw,
+      file: currentAttachment,
       maskedText: scan.maskedText,
       piiCount: scan.entities.length,
       riskScore: scan.riskScore,
@@ -166,7 +197,7 @@ export default function App() {
     setGatewayEcho({
       ticketId: `tkt-${Math.random().toString(36).slice(2, 8)}`,
       timestamp: nowTime(),
-      maskedPrompt: scan.maskedText,
+      maskedPrompt: currentAttachment ? `[ATTACHMENT: ${currentAttachment.name} (ENCRYPTED_BLOB)] ${scan.maskedText}` : scan.maskedText,
       directPiiLeakage: "0.00%",
       userHash: "sha256(sub)::c8a14b...09ef (ANONYMOUS)"
     });
@@ -196,6 +227,34 @@ export default function App() {
         return;
       }
 
+      // Check if user attached a confidential document without an active token
+      if (currentAttachment?.isConfidential && !activeToken) {
+        const consentReply = {
+          id: `msg-${Date.now()}`,
+          sender: "ai",
+          text: `🔒 Phát hiện Tài liệu Mật đính kèm: "${currentAttachment.name}" (${currentAttachment.size}).\n\nTài liệu này chứa thông tin nhân sự / tài chính / hợp đồng mật. Theo quy tắc Zero-Trust, AI cần được cấp Thẩm quyền Giải mã Tạm thời (Emergent Authority) trong 15 phút qua TideCloak để đọc và xử lý nội dung.`,
+          maskedEcho: `Confidential Document Attached: "${currentAttachment.name}". Emergent Authority required.`,
+          needsApproval: true,
+          approved: false,
+          targetDoc: currentAttachment.name,
+          timestamp: nowTime()
+        };
+        setMessages((m) => [...m, consentReply]);
+        return;
+      }
+
+      // If confidential document is attached and token is active
+      if (currentAttachment) {
+        let docAnalysis = "";
+        if (/cv|resume/i.test(currentAttachment.name)) {
+          docAnalysis = `✅ [TideCloak Token Verified · Emergent Authority Active]\n\nPhân tích hồ sơ CV đính kèm ("${currentAttachment.name}"):\n1. Ứng viên: 10+ năm kinh nghiệm quản lý cấp cao trong lĩnh vực Fintech & Enterprise SaaS.\n2. Lương và đãi ngộ cũ: Đã được ẩn danh hóa bằng WebCrypto ở tầng Client, Cloud LLM không thấy bản rõ.\n3. Đánh giá: Phù hợp tiêu chuẩn bổ nhiệm Giám đốc Vận hành (COO).\n\n🔒 Lưu ý: Quyền truy cập 15 phút đang kích hoạt. Bấm "Revoke Token" bất kỳ lúc nào để khóa lại.`;
+        } else {
+          docAnalysis = `✅ [TideCloak Token Verified · Emergent Authority Active]\n\nĐã giải mã tài liệu "${currentAttachment.name}" trong RAM cô lập:\n1. Điều khoản bảo mật và tính pháp lý hợp lệ.\n2. Không phát hiện dấu hiệu rò rỉ dữ liệu hoặc mã độc đính kèm.\n3. Toàn bộ nội dung phân tích được bảo vệ dưới khóa ngưỡng TideCloak.`;
+        }
+        setMessages((m) => [...m, { id: `msg-${Date.now()}`, sender: "ai", text: docAnalysis, maskedEcho: `[DECRYPTED VIA EMERGENT AUTHORITY: ${currentAttachment.name}]`, timestamp: nowTime() }]);
+        return;
+      }
+
       // Check if user is asking about Military Service (Nghĩa vụ quân sự)
       const isMilitary = /nghĩa vụ|quân sự|nhập ngũ|đi lính|20 tuổi|khám tuyển/i.test(raw);
       if (isMilitary) {
@@ -220,6 +279,7 @@ export default function App() {
           maskedEcho: `Tài liệu yêu cầu chứa dữ liệu nhạy cảm cấp độ bí mật kinh doanh. Yêu cầu Emergent Authority Approval.`,
           needsApproval: true,
           approved: false,
+          targetDoc: "M&A Agreement ($12.5M)",
           timestamp: nowTime()
         };
         setMessages((m) => [...m, consentReply]);
@@ -316,7 +376,6 @@ export default function App() {
           </div>
           <div className="brand-text">
             <h1>PrivateChat Shield</h1>
-            <span className="brand-tag">Zero-Trust AI Privacy Gateway &middot; Powered by TideCloak</span>
           </div>
         </a>
 
@@ -450,6 +509,14 @@ export default function App() {
                     <span>&bull;</span>
                     <span>{m.timestamp}</span>
                   </div>
+                  {m.file && (
+                    <div className="msg-file-card">
+                      <span>📄</span>
+                      <strong>{m.file.name}</strong>
+                      <span>({m.file.size})</span>
+                      {m.file.isConfidential && <span className="chip red" style={{ fontSize: "0.6rem" }}>CONFIDENTIAL ASSET</span>}
+                    </div>
+                  )}
                   <div className="bubble-text">
                     {showUnmasked ? m.text : (m.maskedText || m.maskedEcho || m.text)}
                   </div>
@@ -495,7 +562,7 @@ export default function App() {
             )}
           </div>
 
-          {/* Prompt Presets */}
+          {/* Prompt Presets & Document Attachments */}
           <div className="presets-strip">
             <span style={{ fontSize: "0.68rem", color: "var(--text-muted)", fontWeight: 700 }}>PRESETS:</span>
             {vaultData.samplePrompts.map((p) => (
@@ -507,6 +574,24 @@ export default function App() {
                 {p.label}
               </button>
             ))}
+            <button
+              type="button"
+              className="preset-btn"
+              style={{ borderColor: "var(--blue-border)", color: "var(--blue-primary)", background: "var(--blue-light)" }}
+              onClick={() => handleAttachPreset("Executive_CV_Confidential.pdf", "245 KB", true)}
+              title="Attach a confidential CV"
+            >
+              📎 Sample CV (PDF)
+            </button>
+            <button
+              type="button"
+              className="preset-btn"
+              style={{ borderColor: "var(--amber-border)", color: "var(--amber-primary)", background: "var(--amber-light)" }}
+              onClick={() => handleAttachPreset("Passport_Identity_Scan.png", "1.2 MB", true)}
+              title="Attach a confidential Passport scan"
+            >
+              📎 Passport (Image)
+            </button>
           </div>
 
           {/* Compact PII Pill Banner */}
@@ -526,11 +611,46 @@ export default function App() {
 
           {/* Input Footer */}
           <div className="chat-footer">
+            {attachedFile && (
+              <div className="file-pill-banner">
+                <div className="file-pill-left">
+                  <span>📎</span>
+                  <strong>{attachedFile.name}</strong>
+                  <span>({attachedFile.size})</span>
+                  {attachedFile.isConfidential && (
+                    <span className="chip red" style={{ fontSize: "0.62rem" }}>CONFIDENTIAL ASSET</span>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="file-remove-btn"
+                  onClick={() => setAttachedFile(null)}
+                  title="Remove attachment"
+                >
+                  &times;
+                </button>
+              </div>
+            )}
             <form className="input-row" onSubmit={handleSendMessage}>
+              <input
+                type="file"
+                ref={fileInputRef}
+                style={{ display: "none" }}
+                onChange={handleFileUpload}
+                accept=".pdf,.png,.jpg,.jpeg,.mp4,.docx,.txt"
+              />
+              <button
+                type="button"
+                className="btn-attach"
+                onClick={() => fileInputRef.current?.click()}
+                title="Attach PDF, Image, Video, or Document"
+              >
+                📎
+              </button>
               <input
                 type="text"
                 className="input-box"
-                placeholder="Ask AI or paste credit dossiers, CCCD, banking records, contracts..."
+                placeholder={attachedFile ? `Ask AI about ${attachedFile.name} (or leave blank & click Send)...` : "Ask AI or paste credit dossiers, CCCD, banking records, contracts..."}
                 value={inputVal}
                 onChange={(e) => setInputVal(e.target.value)}
                 disabled={isShredded}
@@ -539,7 +659,7 @@ export default function App() {
               <button
                 type="submit"
                 className="btn-send"
-                disabled={isShredded || !inputVal.trim()}
+                disabled={isShredded || (!inputVal.trim() && !attachedFile)}
                 id="btn-send"
               >
                 Send
