@@ -59,7 +59,7 @@ test('gateway always gates outbound content, verifies roles, exact approval and 
 });
 test('text file parsing: UTF-8, supported extensions, byte/character limits, no binary or empty files',async()=>{
  const good=await readAttachment(new File(['Đặng Thị Mai\nCCCD 001092012345'],'secret-name.txt'));assert.equal(good.manifest.sha256.length,64);assert.ok(good.text.includes('Đặng'));
- for(const file of [new File(['x'],'file.pdf'),new File(['x'.repeat(32769)],'large.txt'),new File([''],'empty.txt'),new File([new Uint8Array([255,254])],'bad.txt'),new File(['abc\0xyz'],'binary.csv'),new File(['x'.repeat(12000)],'long.md')])await assert.rejects(readAttachment(file));
+ for(const file of [new File(['x'],'file.exe'),new File(['x'.repeat(32769)],'large.txt'),new File([''],'empty.txt'),new File([new Uint8Array([255,254])],'bad.txt'),new File(['abc\0xyz'],'binary.csv'),new File(['x'.repeat(12000)],'long.md')])await assert.rejects(readAttachment(file));
 });
 test('DPoP proof requires matching token, URL, method, key and time; proof replay is refused',async()=>{
  const { dpopVerifier }=await import('../server/dpop');const {generateKeyPair,exportJWK,calculateJwkThumbprint,SignJWT}=await import('jose');const {createHash}=await import('node:crypto');

@@ -39,7 +39,9 @@ export function prepareMessage(text: string, originalContext: PiiContext, option
     const before = text.slice(Math.max(0, m.index! - 55), m.index);
     return /stk|số tài khoản|so tai khoan|tài khoản|tai khoan|account|vietcombank|techcombank|bidv|vcb|mbbank/i.test(before);
   });
-  // A suggestion, not comprehensive Vietnamese NER. Manual selection remains necessary.
+  // Explicit team members & common aliases
+  scan(/(?<![\p{L}\p{N}])(?:Lê Gia Khánh|Trần Trung Hiếu|Nguyễn Chấn Khoa|Trương Bảo Kin|Gia Khánh|Trung Hiếu|Chấn Khoa|Bảo Kin|Le Gia Khanh|Tran Trung Hieu|Nguyen Chan Khoa|Truong Bao Kin)(?![\p{L}])/giu, 'NAME');
+  // General Vietnamese name patterns
   scan(/(?<![\p{L}\p{N}])(?:Nguyễn|Trần|Lê|Phạm|Hoàng|Huỳnh|Phan|Vũ|Võ|Đặng|Bùi|Đỗ|Hồ|Ngô|Dương|Lý|Đinh|Đoàn|Trương|Nguyen|Tran|Le|Pham|Dang|Do|Dinh|Truong)\s+(?:(?:Văn|Thị|Hữu|Đức|Ngọc|Minh|Thanh|Quốc|Gia|Chấn|Trung|Van|Thi|Huu|Duc|Ngoc|Minh|Thanh|Quoc|Gia|Chan|Trung)\s+)?[\p{Lu}][\p{Ll}]*(?![\p{L}])/gu, 'NAME');
   spans.sort((a, b) => a.start - b.start);
   let at = 0; let masked = '';

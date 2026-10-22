@@ -27,9 +27,21 @@ export interface Turn { id: string; original: string; masked: string; assistantR
 export interface ConversationState { version: 1; id: string; revision: number; title: string; pii: PiiContext; turns: Turn[]; approvalDraft?: ApprovalDraft }
 export interface Identity { ownerId: string; username: string; token: string; canApproveFiles: boolean }
 export interface PublicConfig { authMode: 'demo' | 'tide'; aiProvider: 'demo' | 'gemini'; storage: 'file-demo' | 'postgres'; tideIssuer: string; tag: string; approvalRequired: boolean; model: string }
-export const MAX_FILE_BYTES = 32 * 1024;
+export const MAX_FILE_BYTES = 5 * 1024 * 1024;
 export const APPROVER_ROLE = 'file-approver';
-export const fileSchema = z.object({ sha256: z.string().regex(/^[a-f0-9]{64}$/), bytes: z.number().int().positive().max(MAX_FILE_BYTES), mediaType: z.enum(['text/plain', 'text/csv', 'text/markdown']) }).strict();
+export const fileSchema = z.object({
+  sha256: z.string().regex(/^[a-f0-9]{64}$/),
+  bytes: z.number().int().positive().max(MAX_FILE_BYTES),
+  mediaType: z.enum([
+    'text/plain',
+    'text/csv',
+    'text/markdown',
+    'application/pdf',
+    'image/png',
+    'image/jpeg',
+    'image/webp',
+  ]),
+}).strict();
 export const proposalSchema = z.object({
   conversationId: z.string().uuid(), request: chatSchema,
   files: z.array(fileSchema).max(1), purpose: z.enum(['summarize', 'extract', 'question']),

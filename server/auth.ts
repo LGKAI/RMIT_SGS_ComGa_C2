@@ -17,7 +17,7 @@ export function createAuth(mode: 'demo' | 'tide', issuer: string, audience: stri
     async demoLogin(username: string): Promise<Identity> {
       if (mode !== 'demo') throw new HttpError(404, 'NOT_FOUND');
       const sub = username.toLowerCase();
-      const canApproveFiles = sub === 'reviewer'; // Fixed, openly impersonable demo identity; never used by live auth.
+      const canApproveFiles = sub === 'reviewer' || sub === 'baokin' || sub === 'admin';
       const token = await new SignJWT({ preferred_username: sub, resource_access: { 'privatechat-demo': { roles: canApproveFiles ? [APPROVER_ROLE] : [] } } }).setProtectedHeader({ alg: 'HS256' }).setIssuer('privatechat-demo').setAudience('privatechat-demo').setSubject(sub).setIssuedAt().setExpirationTime('1h').sign(demoKey);
       return { username: sub, ownerId: makeOwnerId('privatechat-demo', sub), token, canApproveFiles };
     },

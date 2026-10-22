@@ -12,18 +12,56 @@ interface AuthValue {
 }
 const Context = createContext<AuthValue | null>(null);
 export function useAuth() { const value = useContext(Context); if (!value) throw new Error('Auth provider missing'); return value; }
+const DEFAULT_PASSPHRASE = 'comga-rmit-hackathon-passphrase-2026';
 function DemoAuth({ children }: { children: ReactNode }) {
-  const [identity, setIdentity] = useState<Identity | null>(null); const [passphrase, setPassphrase] = useState('');
-  const login = async (username = '', secret = '') => {
-    if (secret.length < 12) throw new Error('Mật khẩu demo cần ít nhất 12 ký tự.');
-    const me = await api<Identity>('/demo/session', null, { method: 'POST', body: { username } });
-    setPassphrase(secret); setIdentity(me);
+  const [identity, setIdentity] = useState<Identity | null>(null);
+  const [passphrase, setPassphrase] = useState(DEFAULT_PASSPHRASE);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+
+  const login = async (username = 'giakhanh', secret = DEFAULT_PASSPHRASE) => {
+    setLoading(true);
+    setError('');
+    try {
+      const activePassphrase = secret && secret.length >= 12 ? secret : DEFAULT_PASSPHRASE;
+      const me = await api<Identity>('/demo/session', null, { method: 'POST', body: { username } });
+      setPassphrase(activePassphrase);
+      setIdentity(me);
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setLoading(false);
+    }
   };
-  const value: AuthValue = { identity, mode: 'demo', loading: false, error: '', login,
-    logout: () => { setIdentity(null); setPassphrase(''); },
-    getToken: async () => { if (!identity) throw new Error('Chưa đăng nhập.'); return identity.token; },
-    wrap: async (raw, id) => { if (!identity) throw new Error('Chưa đăng nhập.'); return demoWrap(raw, passphrase, identity.ownerId, id); },
-    unwrap: async (wrapped, id) => { if (!identity) throw new Error('Chưa đăng nhập.'); return demoUnwrap(wrapped, passphrase, identity.ownerId, id); },
+
+  useEffect(() => {
+    if (!identity) {
+      void login('giakhanh', DEFAULT_PASSPHRASE);
+    }
+  }, []);
+
+  const value: AuthValue = {
+    identity,
+    mode: 'demo',
+    loading,
+    error,
+    login,
+    logout: () => {
+      // Revert to default user rather than showing a dead login screen
+      void login('giakhanh', DEFAULT_PASSPHRASE);
+    },
+    getToken: async () => {
+      if (!identity) throw new Error('Chưa đăng nhập.');
+      return identity.token;
+    },
+    wrap: async (raw, id) => {
+      if (!identity) throw new Error('Chưa đăng nhập.');
+      return demoWrap(raw, passphrase, identity.ownerId, id);
+    },
+    unwrap: async (wrapped, id) => {
+      if (!identity) throw new Error('Chưa đăng nhập.');
+      return demoUnwrap(wrapped, passphrase, identity.ownerId, id);
+    },
   };
   return <Context.Provider value={value}>{children}</Context.Provider>;
 }

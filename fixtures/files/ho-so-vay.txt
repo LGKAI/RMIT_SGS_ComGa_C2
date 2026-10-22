@@ -1,9 +1,12 @@
 DỮ LIỆU TỔNG HỢP ĐỂ TEST — KHÔNG PHẢI HỒ SƠ THẬT
-Khách hàng: Đặng Thị Mai
-CCCD: 001092012345
+Khách hàng: Lê Gia Khánh
+CCCD: 079201002345
 SĐT: 0912345678
-Email: mai@example.com
+Email: giakhanh@rmit.edu.vn
 STK Vietcombank: 0071000123456
-Khoản vay đề nghị: 2 tỷ đồng
+Khoản vay đề nghị: 2,5 tỷ đồng
 Tài sản bảo đảm: 5,2 tỷ đồng
+Người bảo lãnh: Trần Trung Hiếu
+Thẩm định viên: Nguyễn Chấn Khoa
+Phê duyệt viên: Trương Bảo Kin
 Cần tóm tắt hồ sơ và liệt kê giấy tờ cần bổ sung. Không tự quyết định phê duyệt khoản vay.
