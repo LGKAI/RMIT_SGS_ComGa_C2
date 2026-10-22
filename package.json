@@ -1,0 +1,48 @@
+{
+  "name": "privatechat-shield",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:demo": "node scripts/dev.mjs --demo",
+    "dev:live": "node scripts/dev.mjs --live",
+    "dev:gemini": "node scripts/dev.mjs --gemini",
+    "dev:demo:pg": "node scripts/dev.mjs --demo --postgres",
+    "build": "tsc --noEmit && vite build",
+    "start": "node --import tsx server/index.ts",
+    "test": "node --import tsx --test tests/*.test.ts",
+    "test:e2e": "node --import tsx scripts/e2e.ts",
+    "eval:pii": "node --import tsx scripts/eval-pii.ts",
+    "check": "npm run test && npm run build",
+    "typecheck": "tsc --noEmit",
+    "dev:tide:demo": "node scripts/dev.mjs --tide-demo",
+    "test:tide": "node --import tsx scripts/tide-smoke.ts"
+  },
+  "dependencies": {
+    "@tidecloak/js": "0.14.41",
+    "@tidecloak/react": "0.14.33",
+    "express": "5.1.0",
+    "jose": "6.0.11",
+    "pg": "8.16.3",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "zod": "3.24.2"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.3.7",
+    "@types/express": "5.0.3",
+    "@types/node": "22.15.30",
+    "@types/pg": "8.15.5",
+    "@types/react": "19.1.6",
+    "@types/react-dom": "19.1.6",
+    "@vitejs/plugin-react": "4.7.0",
+    "playwright": "1.56.1",
+    "tsx": "4.20.5",
+    "typescript": "5.9.3",
+    "vite": "6.4.5"
+  }
+}

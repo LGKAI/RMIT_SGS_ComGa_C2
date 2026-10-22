@@ -1,5 +1,7 @@
 # PLAN v4 — PrivateChat Shield: MVP khả thi và phân công theo độ khó
 
+> Tiến độ code: triển khai một đầu mối theo yêu cầu mới; xem [trạng thái thực tế](docs/IMPLEMENTATION_STATUS.md). Các tên người dưới đây là phân công lịch sử, không còn là cách giao việc hiện tại.
+>
 > Cập nhật: 22/10/2026. Trạng thái: kế hoạch triển khai, chưa phải hệ thống đã được kiểm toán bảo mật.
 > Giả định: 4 thành viên, 48 giờ lịch với khoảng 16–20 giờ làm việc tập trung/người. Mốc H0 bắt đầu khi nhóm triển khai; phải đối chiếu với hạn nộp thực tế trước khi bắt đầu. Lộ trình 7–10 ngày là phương án mở rộng nếu thời gian cho phép.
 > Phân công đề xuất dựa trên vai trò trước đây: Khoa phụ trách kỹ thuật Tide; Khánh phụ trách tích hợp; Kin phụ trách QA/PII; Hiếu phụ trách giao diện/demo. Ước lượng cần điều chỉnh sau spike đầu tiên, không mặc định mọi thành viên có kinh nghiệm tương đương.

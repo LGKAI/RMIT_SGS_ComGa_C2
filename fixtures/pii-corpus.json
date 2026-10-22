@@ -1,0 +1,1307 @@
+[
+  {
+    "id": "dev-00-0",
+    "split": "dev",
+    "family": "dev-template-0",
+    "text": "Khách hàng Nguyễn Văn Hùng; email person00@example.test.",
+    "expected": [
+      {
+        "kind": "NAME",
+        "value": "Nguyễn Văn Hùng"
+      },
+      {
+        "kind": "EMAIL",
+        "value": "person00@example.test"
+      }
+    ]
+  },
+  {
+    "id": "dev-00-1",
+    "split": "dev",
+    "family": "dev-template-0",
+    "text": "Khách hàng Đặng Thị Mai; email person01@example.test.",
+    "expected": [
+      {
+        "kind": "NAME",
+        "value": "Đặng Thị Mai"
+      },
+      {
+        "kind": "EMAIL",
+        "value": "person01@example.test"
+      }
+    ]
+  },
+  {
+    "id": "dev-00-2",
+    "split": "dev",
+    "family": "dev-template-0",
+    "text": "Khách hàng Trần Thị Lan; email person02@example.test.",
+    "expected": [
+      {
+        "kind": "NAME",
+        "value": "Trần Thị Lan"
+      },
+      {
+        "kind": "EMAIL",
+        "value": "person02@example.test"
+      }
+    ]
+  },
+  {
+    "id": "dev-00-3",
+    "split": "dev",
+    "family": "dev-template-0",
+    "text": "Khách hàng Phạm Văn An; email person03@example.test.",
+    "expected": [
+      {
+        "kind": "NAME",
+        "value": "Phạm Văn An"
+      },
+      {
+        "kind": "EMAIL",
+        "value": "person03@example.test"
+      }
+    ]
+  },
+  {
+    "id": "dev-00-4",
+    "split": "dev",
+    "family": "dev-template-0",
+    "text": "Khách hàng Bùi Thị Hoa; email person04@example.test.",
+    "expected": [
+      {
+        "kind": "NAME",
+        "value": "Bùi Thị Hoa"
+      },
+      {
+        "kind": "EMAIL",
+        "value": "person04@example.test"
+      }
+    ]
+  },
+  {
+    "id": "dev-01-0",
+    "split": "dev",
+    "family": "dev-template-1",
+    "text": "Liên hệ SĐT 0912340100.",
+    "expected": [
+      {
+        "kind": "PHONE",
+        "value": "0912340100"
+      }
+    ]
+  },
+  {
+    "id": "dev-01-1",
+    "split": "dev",
+    "family": "dev-template-1",
+    "text": "Liên hệ SĐT 0912340101.",
+    "expected": [
+      {
+        "kind": "PHONE",
+        "value": "0912340101"
+      }
+    ]
+  },
+  {
+    "id": "dev-01-2",
+    "split": "dev",
+    "family": "dev-template-1",
+    "text": "Liên hệ SĐT 0912340102.",
+    "expected": [
+      {
+        "kind": "PHONE",
+        "value": "0912340102"
+      }
+    ]
+  },
+  {
+    "id": "dev-01-3",
+    "split": "dev",
+    "family": "dev-template-1",
+    "text": "Liên hệ SĐT 0912340103.",
+    "expected": [
+      {
+        "kind": "PHONE",
+        "value": "0912340103"
+      }
+    ]
+  },
+  {
+    "id": "dev-01-4",
+    "split": "dev",
+    "family": "dev-template-1",
+    "text": "Liên hệ SĐT 0912340104.",
+    "expected": [
+      {
+        "kind": "PHONE",
+        "value": "0912340104"
+      }
+    ]
+  },
+  {
+    "id": "dev-02-0",
+    "split": "dev",
+    "family": "dev-template-2",
+    "text": "CCCD: 001092002000.",
+    "expected": [
+      {
+        "kind": "CCCD",
+        "value": "001092002000"
+      }
+    ]
+  },
+  {
+    "id": "dev-02-1",
+    "split": "dev",
+    "family": "dev-template-2",
+    "text": "CCCD: 001092002001.",
+    "expected": [
+      {
+        "kind": "CCCD",
+        "value": "001092002001"
+      }
+    ]
+  },
+  {
+    "id": "dev-02-2",
+    "split": "dev",
+    "family": "dev-template-2",
+    "text": "CCCD: 001092002002.",
+    "expected": [
+      {
+        "kind": "CCCD",
+        "value": "001092002002"
+      }
+    ]
+  },
+  {
+    "id": "dev-02-3",
+    "split": "dev",
+    "family": "dev-template-2",
+    "text": "CCCD: 001092002003.",
+    "expected": [
+      {
+        "kind": "CCCD",
+        "value": "001092002003"
+      }
+    ]
+  },
+  {
+    "id": "dev-02-4",
+    "split": "dev",
+    "family": "dev-template-2",
+    "text": "CCCD: 001092002004.",
+    "expected": [
+      {
+        "kind": "CCCD",
+        "value": "001092002004"
+      }
+    ]
+  },
+  {
+    "id": "dev-03-0",
+    "split": "dev",
+    "family": "dev-template-3",
+    "text": "STK Vietcombank: 0071000003000.",
+    "expected": [
+      {
+        "kind": "STK",
+        "value": "0071000003000"
+      }
+    ]
+  },
+  {
+    "id": "dev-03-1",
+    "split": "dev",
+    "family": "dev-template-3",
+    "text": "STK Vietcombank: 0071000003001.",
+    "expected": [
+      {
+        "kind": "STK",
+        "value": "0071000003001"
+      }
+    ]
+  },
+  {
+    "id": "dev-03-2",
+    "split": "dev",
+    "family": "dev-template-3",
+    "text": "STK Vietcombank: 0071000003002.",
+    "expected": [
+      {
+        "kind": "STK",
+        "value": "0071000003002"
+      }
+    ]
+  },
+  {
+    "id": "dev-03-3",
+    "split": "dev",
+    "family": "dev-template-3",
+    "text": "STK Vietcombank: 0071000003003.",
+    "expected": [
+      {
+        "kind": "STK",
+        "value": "0071000003003"
+      }
+    ]
+  },
+  {
+    "id": "dev-03-4",
+    "split": "dev",
+    "family": "dev-template-3",
+    "text": "STK Vietcombank: 0071000003004.",
+    "expected": [
+      {
+        "kind": "STK",
+        "value": "0071000003004"
+      }
+    ]
+  },
+  {
+    "id": "dev-04-0",
+    "split": "dev",
+    "family": "dev-template-4",
+    "text": "Nguyễn Văn Hùng cần hồ sơ cho khoản vay 2,5 tỷ đồng.",
+    "expected": [
+      {
+        "kind": "NAME",
+        "value": "Nguyễn Văn Hùng"
+      }
+    ]
+  },
+  {
+    "id": "dev-04-1",
+    "split": "dev",
+    "family": "dev-template-4",
+    "text": "Đặng Thị Mai cần hồ sơ cho khoản vay 2,5 tỷ đồng.",
+    "expected": [
+      {
+        "kind": "NAME",
+        "value": "Đặng Thị Mai"
+      }
+    ]
+  },
+  {
+    "id": "dev-04-2",
+    "split": "dev",
+    "family": "dev-template-4",
+    "text": "Trần Thị Lan cần hồ sơ cho khoản vay 2,5 tỷ đồng.",
+    "expected": [
+      {
+        "kind": "NAME",
+        "value": "Trần Thị Lan"
+      }
+    ]
+  },
+  {
+    "id": "dev-04-3",
+    "split": "dev",
+    "family": "dev-template-4",
+    "text": "Phạm Văn An cần hồ sơ cho khoản vay 2,5 tỷ đồng.",
+    "expected": [
+      {
+        "kind": "NAME",
+        "value": "Phạm Văn An"
+      }
+    ]
+  },
+  {
+    "id": "dev-04-4",
+    "split": "dev",
+    "family": "dev-template-4",
+    "text": "Bùi Thị Hoa cần hồ sơ cho khoản vay 2,5 tỷ đồng.",
+    "expected": [
+      {
+        "kind": "NAME",
+        "value": "Bùi Thị Hoa"
+      }
+    ]
+  },
+  {
+    "id": "dev-05-0",
+    "split": "dev",
+    "family": "dev-template-5",
+    "text": "Danh sách giấy tờ cần bổ sung: thu nhập và tài sản bảo đảm.",
+    "expected": []
+  },
+  {
+    "id": "dev-05-1",
+    "split": "dev",
+    "family": "dev-template-5",
+    "text": "Danh sách giấy tờ cần bổ sung: thu nhập và tài sản bảo đảm.",
+    "expected": []
+  },
+  {
+    "id": "dev-05-2",
+    "split": "dev",
+    "family": "dev-template-5",
+    "text": "Danh sách giấy tờ cần bổ sung: thu nhập và tài sản bảo đảm.",
+    "expected": []
+  },
+  {
+    "id": "dev-05-3",
+    "split": "dev",
+    "family": "dev-template-5",
+    "text": "Danh sách giấy tờ cần bổ sung: thu nhập và tài sản bảo đảm.",
+    "expected": []
+  },
+  {
+    "id": "dev-05-4",
+    "split": "dev",
+    "family": "dev-template-5",
+    "text": "Danh sách giấy tờ cần bổ sung: thu nhập và tài sản bảo đảm.",
+    "expected": []
+  },
+  {
+    "id": "dev-06-0",
+    "split": "dev",
+    "family": "dev-template-6",
+    "text": "Người liên hệ: Nguyễn Văn Hùng. Gửi tới person60@example.test.",
+    "expected": [
+      {
+        "kind": "NAME",
+        "value": "Nguyễn Văn Hùng"
+      },
+      {
+        "kind": "EMAIL",
+        "value": "person60@example.test"
+      }
+    ]
+  },
+  {
+    "id": "dev-06-1",
+    "split": "dev",
+    "family": "dev-template-6",
+    "text": "Người liên hệ: Đặng Thị Mai. Gửi tới person61@example.test.",
+    "expected": [
+      {
+        "kind": "NAME",
+        "value": "Đặng Thị Mai"
+      },
+      {
+        "kind": "EMAIL",
+        "value": "person61@example.test"
+      }
+    ]
+  },
+  {
+    "id": "dev-06-2",
+    "split": "dev",
+    "family": "dev-template-6",
+    "text": "Người liên hệ: Trần Thị Lan. Gửi tới person62@example.test.",
+    "expected": [
+      {
+        "kind": "NAME",
+        "value": "Trần Thị Lan"
+      },
+      {
+        "kind": "EMAIL",
+        "value": "person62@example.test"
+      }
+    ]
+  },
+  {
+    "id": "dev-06-3",
+    "split": "dev",
+    "family": "dev-template-6",
+    "text": "Người liên hệ: Phạm Văn An. Gửi tới person63@example.test.",
+    "expected": [
+      {
+        "kind": "NAME",
+        "value": "Phạm Văn An"
+      },
+      {
+        "kind": "EMAIL",
+        "value": "person63@example.test"
+      }
+    ]
+  },
+  {
+    "id": "dev-06-4",
+    "split": "dev",
+    "family": "dev-template-6",
+    "text": "Người liên hệ: Bùi Thị Hoa. Gửi tới person64@example.test.",
+    "expected": [
+      {
+        "kind": "NAME",
+        "value": "Bùi Thị Hoa"
+      },
+      {
+        "kind": "EMAIL",
+        "value": "person64@example.test"
+      }
+    ]
+  },
+  {
+    "id": "dev-07-0",
+    "split": "dev",
+    "family": "dev-template-7",
+    "text": "Tên giao dịch: Nguyễn Văn Hùng; SĐT: 0912340700; STK: 0071000007000",
+    "expected": [
+      {
+        "kind": "NAME",
+        "value": "Nguyễn Văn Hùng"
+      },
+      {
+        "kind": "PHONE",
+        "value": "0912340700"
+      },
+      {
+        "kind": "STK",
+        "value": "0071000007000"
+      }
+    ]
+  },
+  {
+    "id": "dev-07-1",
+    "split": "dev",
+    "family": "dev-template-7",
+    "text": "Tên giao dịch: Đặng Thị Mai; SĐT: 0912340701; STK: 0071000007001",
+    "expected": [
+      {
+        "kind": "NAME",
+        "value": "Đặng Thị Mai"
+      },
+      {
+        "kind": "PHONE",
+        "value": "0912340701"
+      },
+      {
+        "kind": "STK",
+        "value": "0071000007001"
+      }
+    ]
+  },
+  {
+    "id": "dev-07-2",
+    "split": "dev",
+    "family": "dev-template-7",
+    "text": "Tên giao dịch: Trần Thị Lan; SĐT: 0912340702; STK: 0071000007002",
+    "expected": [
+      {
+        "kind": "NAME",
+        "value": "Trần Thị Lan"
+      },
+      {
+        "kind": "PHONE",
+        "value": "0912340702"
+      },
+      {
+        "kind": "STK",
+        "value": "0071000007002"
+      }
+    ]
+  },
+  {
+    "id": "dev-07-3",
+    "split": "dev",
+    "family": "dev-template-7",
+    "text": "Tên giao dịch: Phạm Văn An; SĐT: 0912340703; STK: 0071000007003",
+    "expected": [
+      {
+        "kind": "NAME",
+        "value": "Phạm Văn An"
+      },
+      {
+        "kind": "PHONE",
+        "value": "0912340703"
+      },
+      {
+        "kind": "STK",
+        "value": "0071000007003"
+      }
+    ]
+  },
+  {
+    "id": "dev-07-4",
+    "split": "dev",
+    "family": "dev-template-7",
+    "text": "Tên giao dịch: Bùi Thị Hoa; SĐT: 0912340704; STK: 0071000007004",
+    "expected": [
+      {
+        "kind": "NAME",
+        "value": "Bùi Thị Hoa"
+      },
+      {
+        "kind": "PHONE",
+        "value": "0912340704"
+      },
+      {
+        "kind": "STK",
+        "value": "0071000007004"
+      }
+    ]
+  },
+  {
+    "id": "dev-08-0",
+    "split": "dev",
+    "family": "dev-template-8",
+    "text": "Địa chỉ email xác nhận là person80@example.test",
+    "expected": [
+      {
+        "kind": "EMAIL",
+        "value": "person80@example.test"
+      }
+    ]
+  },
+  {
+    "id": "dev-08-1",
+    "split": "dev",
+    "family": "dev-template-8",
+    "text": "Địa chỉ email xác nhận là person81@example.test",
+    "expected": [
+      {
+        "kind": "EMAIL",
+        "value": "person81@example.test"
+      }
+    ]
+  },
+  {
+    "id": "dev-08-2",
+    "split": "dev",
+    "family": "dev-template-8",
+    "text": "Địa chỉ email xác nhận là person82@example.test",
+    "expected": [
+      {
+        "kind": "EMAIL",
+        "value": "person82@example.test"
+      }
+    ]
+  },
+  {
+    "id": "dev-08-3",
+    "split": "dev",
+    "family": "dev-template-8",
+    "text": "Địa chỉ email xác nhận là person83@example.test",
+    "expected": [
+      {
+        "kind": "EMAIL",
+        "value": "person83@example.test"
+      }
+    ]
+  },
+  {
+    "id": "dev-08-4",
+    "split": "dev",
+    "family": "dev-template-8",
+    "text": "Địa chỉ email xác nhận là person84@example.test",
+    "expected": [
+      {
+        "kind": "EMAIL",
+        "value": "person84@example.test"
+      }
+    ]
+  },
+  {
+    "id": "dev-09-0",
+    "split": "dev",
+    "family": "dev-template-9",
+    "text": "CCCD 0010 9200 9000",
+    "expected": [
+      {
+        "kind": "CCCD",
+        "value": "0010 9200 9000"
+      }
+    ]
+  },
+  {
+    "id": "dev-09-1",
+    "split": "dev",
+    "family": "dev-template-9",
+    "text": "CCCD 0010 9200 9001",
+    "expected": [
+      {
+        "kind": "CCCD",
+        "value": "0010 9200 9001"
+      }
+    ]
+  },
+  {
+    "id": "dev-09-2",
+    "split": "dev",
+    "family": "dev-template-9",
+    "text": "CCCD 0010 9200 9002",
+    "expected": [
+      {
+        "kind": "CCCD",
+        "value": "0010 9200 9002"
+      }
+    ]
+  },
+  {
+    "id": "dev-09-3",
+    "split": "dev",
+    "family": "dev-template-9",
+    "text": "CCCD 0010 9200 9003",
+    "expected": [
+      {
+        "kind": "CCCD",
+        "value": "0010 9200 9003"
+      }
+    ]
+  },
+  {
+    "id": "dev-09-4",
+    "split": "dev",
+    "family": "dev-template-9",
+    "text": "CCCD 0010 9200 9004",
+    "expected": [
+      {
+        "kind": "CCCD",
+        "value": "0010 9200 9004"
+      }
+    ]
+  },
+  {
+    "id": "dev-10-0",
+    "split": "dev",
+    "family": "dev-template-10",
+    "text": "SĐT 0912341000; số tài khoản 0071000010000",
+    "expected": [
+      {
+        "kind": "PHONE",
+        "value": "0912341000"
+      },
+      {
+        "kind": "STK",
+        "value": "0071000010000"
+      }
+    ]
+  },
+  {
+    "id": "dev-10-1",
+    "split": "dev",
+    "family": "dev-template-10",
+    "text": "SĐT 0912341001; số tài khoản 0071000010001",
+    "expected": [
+      {
+        "kind": "PHONE",
+        "value": "0912341001"
+      },
+      {
+        "kind": "STK",
+        "value": "0071000010001"
+      }
+    ]
+  },
+  {
+    "id": "dev-10-2",
+    "split": "dev",
+    "family": "dev-template-10",
+    "text": "SĐT 0912341002; số tài khoản 0071000010002",
+    "expected": [
+      {
+        "kind": "PHONE",
+        "value": "0912341002"
+      },
+      {
+        "kind": "STK",
+        "value": "0071000010002"
+      }
+    ]
+  },
+  {
+    "id": "dev-10-3",
+    "split": "dev",
+    "family": "dev-template-10",
+    "text": "SĐT 0912341003; số tài khoản 0071000010003",
+    "expected": [
+      {
+        "kind": "PHONE",
+        "value": "0912341003"
+      },
+      {
+        "kind": "STK",
+        "value": "0071000010003"
+      }
+    ]
+  },
+  {
+    "id": "dev-10-4",
+    "split": "dev",
+    "family": "dev-template-10",
+    "text": "SĐT 0912341004; số tài khoản 0071000010004",
+    "expected": [
+      {
+        "kind": "PHONE",
+        "value": "0912341004"
+      },
+      {
+        "kind": "STK",
+        "value": "0071000010004"
+      }
+    ]
+  },
+  {
+    "id": "dev-11-0",
+    "split": "dev",
+    "family": "dev-template-11",
+    "text": "Tỷ lệ cần tính: 2,5 tỷ / 5,2 tỷ. Không có thông tin định danh.",
+    "expected": []
+  },
+  {
+    "id": "dev-11-1",
+    "split": "dev",
+    "family": "dev-template-11",
+    "text": "Tỷ lệ cần tính: 2,5 tỷ / 5,2 tỷ. Không có thông tin định danh.",
+    "expected": []
+  },
+  {
+    "id": "dev-11-2",
+    "split": "dev",
+    "family": "dev-template-11",
+    "text": "Tỷ lệ cần tính: 2,5 tỷ / 5,2 tỷ. Không có thông tin định danh.",
+    "expected": []
+  },
+  {
+    "id": "dev-11-3",
+    "split": "dev",
+    "family": "dev-template-11",
+    "text": "Tỷ lệ cần tính: 2,5 tỷ / 5,2 tỷ. Không có thông tin định danh.",
+    "expected": []
+  },
+  {
+    "id": "dev-11-4",
+    "split": "dev",
+    "family": "dev-template-11",
+    "text": "Tỷ lệ cần tính: 2,5 tỷ / 5,2 tỷ. Không có thông tin định danh.",
+    "expected": []
+  },
+  {
+    "id": "holdout-00-0",
+    "split": "holdout",
+    "family": "holdout-template-0",
+    "text": "Hồ sơ tổng hợp: Nguyễn Văn Hùng\nEmail phản hồi: person00@example.test\nSố tiền: 25 triệu.",
+    "expected": [
+      {
+        "kind": "NAME",
+        "value": "Nguyễn Văn Hùng"
+      },
+      {
+        "kind": "EMAIL",
+        "value": "person00@example.test"
+      }
+    ]
+  },
+  {
+    "id": "holdout-00-1",
+    "split": "holdout",
+    "family": "holdout-template-0",
+    "text": "Hồ sơ tổng hợp: Đặng Thị Mai\nEmail phản hồi: person01@example.test\nSố tiền: 25 triệu.",
+    "expected": [
+      {
+        "kind": "NAME",
+        "value": "Đặng Thị Mai"
+      },
+      {
+        "kind": "EMAIL",
+        "value": "person01@example.test"
+      }
+    ]
+  },
+  {
+    "id": "holdout-00-2",
+    "split": "holdout",
+    "family": "holdout-template-0",
+    "text": "Hồ sơ tổng hợp: Trần Thị Lan\nEmail phản hồi: person02@example.test\nSố tiền: 25 triệu.",
+    "expected": [
+      {
+        "kind": "NAME",
+        "value": "Trần Thị Lan"
+      },
+      {
+        "kind": "EMAIL",
+        "value": "person02@example.test"
+      }
+    ]
+  },
+  {
+    "id": "holdout-00-3",
+    "split": "holdout",
+    "family": "holdout-template-0",
+    "text": "Hồ sơ tổng hợp: Phạm Văn An\nEmail phản hồi: person03@example.test\nSố tiền: 25 triệu.",
+    "expected": [
+      {
+        "kind": "NAME",
+        "value": "Phạm Văn An"
+      },
+      {
+        "kind": "EMAIL",
+        "value": "person03@example.test"
+      }
+    ]
+  },
+  {
+    "id": "holdout-00-4",
+    "split": "holdout",
+    "family": "holdout-template-0",
+    "text": "Hồ sơ tổng hợp: Bùi Thị Hoa\nEmail phản hồi: person04@example.test\nSố tiền: 25 triệu.",
+    "expected": [
+      {
+        "kind": "NAME",
+        "value": "Bùi Thị Hoa"
+      },
+      {
+        "kind": "EMAIL",
+        "value": "person04@example.test"
+      }
+    ]
+  },
+  {
+    "id": "holdout-01-0",
+    "split": "holdout",
+    "family": "holdout-template-1",
+    "text": "Số gọi lại: 0912.340.100",
+    "expected": [
+      {
+        "kind": "PHONE",
+        "value": "0912.340.100"
+      }
+    ]
+  },
+  {
+    "id": "holdout-01-1",
+    "split": "holdout",
+    "family": "holdout-template-1",
+    "text": "Số gọi lại: 0912.340.101",
+    "expected": [
+      {
+        "kind": "PHONE",
+        "value": "0912.340.101"
+      }
+    ]
+  },
+  {
+    "id": "holdout-01-2",
+    "split": "holdout",
+    "family": "holdout-template-1",
+    "text": "Số gọi lại: 0912.340.102",
+    "expected": [
+      {
+        "kind": "PHONE",
+        "value": "0912.340.102"
+      }
+    ]
+  },
+  {
+    "id": "holdout-01-3",
+    "split": "holdout",
+    "family": "holdout-template-1",
+    "text": "Số gọi lại: 0912.340.103",
+    "expected": [
+      {
+        "kind": "PHONE",
+        "value": "0912.340.103"
+      }
+    ]
+  },
+  {
+    "id": "holdout-01-4",
+    "split": "holdout",
+    "family": "holdout-template-1",
+    "text": "Số gọi lại: 0912.340.104",
+    "expected": [
+      {
+        "kind": "PHONE",
+        "value": "0912.340.104"
+      }
+    ]
+  },
+  {
+    "id": "holdout-02-0",
+    "split": "holdout",
+    "family": "holdout-template-2",
+    "text": "Căn cước cần kiểm tra: 001092002000",
+    "expected": [
+      {
+        "kind": "CCCD",
+        "value": "001092002000"
+      }
+    ]
+  },
+  {
+    "id": "holdout-02-1",
+    "split": "holdout",
+    "family": "holdout-template-2",
+    "text": "Căn cước cần kiểm tra: 001092002001",
+    "expected": [
+      {
+        "kind": "CCCD",
+        "value": "001092002001"
+      }
+    ]
+  },
+  {
+    "id": "holdout-02-2",
+    "split": "holdout",
+    "family": "holdout-template-2",
+    "text": "Căn cước cần kiểm tra: 001092002002",
+    "expected": [
+      {
+        "kind": "CCCD",
+        "value": "001092002002"
+      }
+    ]
+  },
+  {
+    "id": "holdout-02-3",
+    "split": "holdout",
+    "family": "holdout-template-2",
+    "text": "Căn cước cần kiểm tra: 001092002003",
+    "expected": [
+      {
+        "kind": "CCCD",
+        "value": "001092002003"
+      }
+    ]
+  },
+  {
+    "id": "holdout-02-4",
+    "split": "holdout",
+    "family": "holdout-template-2",
+    "text": "Căn cước cần kiểm tra: 001092002004",
+    "expected": [
+      {
+        "kind": "CCCD",
+        "value": "001092002004"
+      }
+    ]
+  },
+  {
+    "id": "holdout-03-0",
+    "split": "holdout",
+    "family": "holdout-template-3",
+    "text": "Thông tin thụ hưởng, STK 0071000003000; ngân hàng thử nghiệm.",
+    "expected": [
+      {
+        "kind": "STK",
+        "value": "0071000003000"
+      }
+    ]
+  },
+  {
+    "id": "holdout-03-1",
+    "split": "holdout",
+    "family": "holdout-template-3",
+    "text": "Thông tin thụ hưởng, STK 0071000003001; ngân hàng thử nghiệm.",
+    "expected": [
+      {
+        "kind": "STK",
+        "value": "0071000003001"
+      }
+    ]
+  },
+  {
+    "id": "holdout-03-2",
+    "split": "holdout",
+    "family": "holdout-template-3",
+    "text": "Thông tin thụ hưởng, STK 0071000003002; ngân hàng thử nghiệm.",
+    "expected": [
+      {
+        "kind": "STK",
+        "value": "0071000003002"
+      }
+    ]
+  },
+  {
+    "id": "holdout-03-3",
+    "split": "holdout",
+    "family": "holdout-template-3",
+    "text": "Thông tin thụ hưởng, STK 0071000003003; ngân hàng thử nghiệm.",
+    "expected": [
+      {
+        "kind": "STK",
+        "value": "0071000003003"
+      }
+    ]
+  },
+  {
+    "id": "holdout-03-4",
+    "split": "holdout",
+    "family": "holdout-template-3",
+    "text": "Thông tin thụ hưởng, STK 0071000003004; ngân hàng thử nghiệm.",
+    "expected": [
+      {
+        "kind": "STK",
+        "value": "0071000003004"
+      }
+    ]
+  },
+  {
+    "id": "holdout-04-0",
+    "split": "holdout",
+    "family": "holdout-template-4",
+    "text": "khach hang nguyễn văn hùng de nghi bo sung ho so",
+    "expected": [
+      {
+        "kind": "NAME",
+        "value": "nguyễn văn hùng"
+      }
+    ]
+  },
+  {
+    "id": "holdout-04-1",
+    "split": "holdout",
+    "family": "holdout-template-4",
+    "text": "khach hang đặng thị mai de nghi bo sung ho so",
+    "expected": [
+      {
+        "kind": "NAME",
+        "value": "đặng thị mai"
+      }
+    ]
+  },
+  {
+    "id": "holdout-04-2",
+    "split": "holdout",
+    "family": "holdout-template-4",
+    "text": "khach hang trần thị lan de nghi bo sung ho so",
+    "expected": [
+      {
+        "kind": "NAME",
+        "value": "trần thị lan"
+      }
+    ]
+  },
+  {
+    "id": "holdout-04-3",
+    "split": "holdout",
+    "family": "holdout-template-4",
+    "text": "khach hang phạm văn an de nghi bo sung ho so",
+    "expected": [
+      {
+        "kind": "NAME",
+        "value": "phạm văn an"
+      }
+    ]
+  },
+  {
+    "id": "holdout-04-4",
+    "split": "holdout",
+    "family": "holdout-template-4",
+    "text": "khach hang bùi thị hoa de nghi bo sung ho so",
+    "expected": [
+      {
+        "kind": "NAME",
+        "value": "bùi thị hoa"
+      }
+    ]
+  },
+  {
+    "id": "holdout-05-0",
+    "split": "holdout",
+    "family": "holdout-template-5",
+    "text": "Tổng hợp giấy tờ: không được phê duyệt tín dụng khi thiếu dữ liệu.",
+    "expected": []
+  },
+  {
+    "id": "holdout-05-1",
+    "split": "holdout",
+    "family": "holdout-template-5",
+    "text": "Tổng hợp giấy tờ: không được phê duyệt tín dụng khi thiếu dữ liệu.",
+    "expected": []
+  },
+  {
+    "id": "holdout-05-2",
+    "split": "holdout",
+    "family": "holdout-template-5",
+    "text": "Tổng hợp giấy tờ: không được phê duyệt tín dụng khi thiếu dữ liệu.",
+    "expected": []
+  },
+  {
+    "id": "holdout-05-3",
+    "split": "holdout",
+    "family": "holdout-template-5",
+    "text": "Tổng hợp giấy tờ: không được phê duyệt tín dụng khi thiếu dữ liệu.",
+    "expected": []
+  },
+  {
+    "id": "holdout-05-4",
+    "split": "holdout",
+    "family": "holdout-template-5",
+    "text": "Tổng hợp giấy tờ: không được phê duyệt tín dụng khi thiếu dữ liệu.",
+    "expected": []
+  },
+  {
+    "id": "holdout-06-0",
+    "split": "holdout",
+    "family": "holdout-template-6",
+    "text": "Email: person60@example.test. Liên hệ lại theo số 0912340600.",
+    "expected": [
+      {
+        "kind": "EMAIL",
+        "value": "person60@example.test"
+      },
+      {
+        "kind": "PHONE",
+        "value": "0912340600"
+      }
+    ]
+  },
+  {
+    "id": "holdout-06-1",
+    "split": "holdout",
+    "family": "holdout-template-6",
+    "text": "Email: person61@example.test. Liên hệ lại theo số 0912340601.",
+    "expected": [
+      {
+        "kind": "EMAIL",
+        "value": "person61@example.test"
+      },
+      {
+        "kind": "PHONE",
+        "value": "0912340601"
+      }
+    ]
+  },
+  {
+    "id": "holdout-06-2",
+    "split": "holdout",
+    "family": "holdout-template-6",
+    "text": "Email: person62@example.test. Liên hệ lại theo số 0912340602.",
+    "expected": [
+      {
+        "kind": "EMAIL",
+        "value": "person62@example.test"
+      },
+      {
+        "kind": "PHONE",
+        "value": "0912340602"
+      }
+    ]
+  },
+  {
+    "id": "holdout-06-3",
+    "split": "holdout",
+    "family": "holdout-template-6",
+    "text": "Email: person63@example.test. Liên hệ lại theo số 0912340603.",
+    "expected": [
+      {
+        "kind": "EMAIL",
+        "value": "person63@example.test"
+      },
+      {
+        "kind": "PHONE",
+        "value": "0912340603"
+      }
+    ]
+  },
+  {
+    "id": "holdout-06-4",
+    "split": "holdout",
+    "family": "holdout-template-6",
+    "text": "Email: person64@example.test. Liên hệ lại theo số 0912340604.",
+    "expected": [
+      {
+        "kind": "EMAIL",
+        "value": "person64@example.test"
+      },
+      {
+        "kind": "PHONE",
+        "value": "0912340604"
+      }
+    ]
+  },
+  {
+    "id": "holdout-07-0",
+    "split": "holdout",
+    "family": "holdout-template-7",
+    "text": "STK: 0071000007000; khách hàng Nguyễn Văn Hùng; CCCD: 001092007000",
+    "expected": [
+      {
+        "kind": "STK",
+        "value": "0071000007000"
+      },
+      {
+        "kind": "NAME",
+        "value": "Nguyễn Văn Hùng"
+      },
+      {
+        "kind": "CCCD",
+        "value": "001092007000"
+      }
+    ]
+  },
+  {
+    "id": "holdout-07-1",
+    "split": "holdout",
+    "family": "holdout-template-7",
+    "text": "STK: 0071000007001; khách hàng Đặng Thị Mai; CCCD: 001092007001",
+    "expected": [
+      {
+        "kind": "STK",
+        "value": "0071000007001"
+      },
+      {
+        "kind": "NAME",
+        "value": "Đặng Thị Mai"
+      },
+      {
+        "kind": "CCCD",
+        "value": "001092007001"
+      }
+    ]
+  },
+  {
+    "id": "holdout-07-2",
+    "split": "holdout",
+    "family": "holdout-template-7",
+    "text": "STK: 0071000007002; khách hàng Trần Thị Lan; CCCD: 001092007002",
+    "expected": [
+      {
+        "kind": "STK",
+        "value": "0071000007002"
+      },
+      {
+        "kind": "NAME",
+        "value": "Trần Thị Lan"
+      },
+      {
+        "kind": "CCCD",
+        "value": "001092007002"
+      }
+    ]
+  },
+  {
+    "id": "holdout-07-3",
+    "split": "holdout",
+    "family": "holdout-template-7",
+    "text": "STK: 0071000007003; khách hàng Phạm Văn An; CCCD: 001092007003",
+    "expected": [
+      {
+        "kind": "STK",
+        "value": "0071000007003"
+      },
+      {
+        "kind": "NAME",
+        "value": "Phạm Văn An"
+      },
+      {
+        "kind": "CCCD",
+        "value": "001092007003"
+      }
+    ]
+  },
+  {
+    "id": "holdout-07-4",
+    "split": "holdout",
+    "family": "holdout-template-7",
+    "text": "STK: 0071000007004; khách hàng Bùi Thị Hoa; CCCD: 001092007004",
+    "expected": [
+      {
+        "kind": "STK",
+        "value": "0071000007004"
+      },
+      {
+        "kind": "NAME",
+        "value": "Bùi Thị Hoa"
+      },
+      {
+        "kind": "CCCD",
+        "value": "001092007004"
+      }
+    ]
+  }
+]
