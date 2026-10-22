@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useTideCloak } from "@tidecloak/react";
 import vaultData from "./vaultData.json";
-import { detectAndMaskPII, unmaskText } from "./piiEngine";
+import { detectAndMaskPII } from "./piiEngine";
 
 const AUTH_SERVER = "http://localhost:8080/";
 
@@ -9,33 +9,26 @@ function nowTime() {
   return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
-function randSig() {
-  const hex = "0123456789abcdef";
-  let s = "0x";
-  for (let i = 0; i < 14; i++) s += hex[Math.floor(Math.random() * hex.length)];
-  return s + "...";
-}
-
 export default function App() {
   const { authenticated, isLoading, login, logout, getValueFromToken } = useTideCloak();
 
-  // Role Switcher: "user" | "vendor" | "admin"
+  // Role Switcher: "user" | "gateway" | "admin"
   const [viewRole, setViewRole] = useState("user");
 
   // Client Unmasking Toggle
-  const [showRealValuesOnClient, setShowRealValuesOnClient] = useState(true);
+  const [showUnmasked, setShowUnmasked] = useState(true);
 
-  // Chat Thread State
+  // Chat State
   const [messages, setMessages] = useState(vaultData.defaultChatHistory);
   const [inputVal, setInputVal] = useState("");
   const [livePii, setLivePii] = useState(detectAndMaskPII(""));
   const [chatLoading, setChatLoading] = useState(false);
 
   // Gateway Echo State (What Cloud AI sees)
-  const [lastGatewayEcho, setLastGatewayEcho] = useState({
-    ticketId: "8f4a-91d2-4e6b-a01c",
+  const [gatewayEcho, setGatewayEcho] = useState({
+    ticketId: "8f4a-91d2-4e6b",
     timestamp: "14:30:15",
-    maskedPrompt: "Chào AI, tôi cần nhờ bạn thẩm định giúp hồ sơ vay vốn [MONEY_1] của khách hàng [NAME_1] (CCCD [CCCD_1], STK Vietcombank [STK_1]) xem có đủ điều kiện thế chấp không.",
+    maskedPrompt: "Please review the [MONEY_1] credit dossier for client [NAME_1] (CCCD [CCCD_1], Vietcombank account [STK_1], phone [PHONE_1]) with collateral [MONEY_2].",
     directPiiLeakage: "0.00%",
     userHash: "sha256(sub)::c8a14b...09ef (ANONYMOUS)"
   });
@@ -64,7 +57,7 @@ export default function App() {
     toastTimer.current = setTimeout(() => setToast(""), 6000);
   }
 
-  // Pre-flight check for TideCloak Docker
+  // Login handler
   async function handleLogin() {
     try {
       const ctrl = new AbortController();
@@ -72,17 +65,17 @@ export default function App() {
       await fetch(AUTH_SERVER, { mode: "no-cors", signal: ctrl.signal });
       clearTimeout(t);
     } catch {
-      showToast("TideCloak server không chạy trên localhost:8080. Khởi động Docker để kết nối IdP thật.");
+      showToast("TideCloak container is not reachable on localhost:8080. Start Docker to connect.");
       return;
     }
     try {
       await login();
     } catch (err) {
-      showToast(`Đăng nhập thất bại: ${err.message}`);
+      showToast(`Login failed: ${err.message}`);
     }
   }
 
-  // Select a preset sample prompt
+  // Select sample preset prompt
   function selectPreset(presetText) {
     setInputVal(presetText);
   }
@@ -95,7 +88,6 @@ export default function App() {
     const raw = inputVal;
     const scan = detectAndMaskPII(raw);
 
-    // Create user message
     const userMsg = {
       id: `msg-${Date.now()}`,
       sender: "user",
@@ -111,30 +103,30 @@ export default function App() {
     setChatLoading(true);
 
     // Update Gateway Echo
-    setLastGatewayEcho({
-      ticketId: `tkt-${Math.random().toString(36).slice(2, 10)}`,
+    setGatewayEcho({
+      ticketId: `tkt-${Math.random().toString(36).slice(2, 8)}`,
       timestamp: nowTime(),
       maskedPrompt: scan.maskedText,
       directPiiLeakage: "0.00%",
-      userHash: "sha256(sub)::c8a14b...09ef (ANONYMOUS TICKET)"
+      userHash: "sha256(sub)::c8a14b...09ef (ANONYMOUS)"
     });
 
-    // Check Prompt Injection (Synergy with Challenge 1)
+    // Check Prompt Injection (Challenge 1 Guardrail)
     setTimeout(() => {
       setChatLoading(false);
-      const isInjection = /bỏ qua|ignore|jailbreak|bypass|api key|root|password|trích xuất|dump|mật khẩu/i.test(raw);
+      const isInjection = /bỏ qua|ignore|jailbreak|bypass|api key|root|password|dump|mật khẩu/i.test(raw);
 
       if (isInjection) {
         setAlert({
           type: "danger",
-          title: "🚨 Phát hiện Tấn công Prompt Injection (Challenge 1 Guardrail)",
-          message: "Mô hình phân loại đa ngôn ngữ (C1) phát hiện ý định trích xuất dữ liệu trái phép (Confidence: 94.8%). TideCloak kích hoạt Emergency Lockdown: Thẩm quyền giải mã bị từ chối."
+          title: "🚨 Multilingual Prompt Injection Blocked!",
+          message: "Challenge 1 Guardrail Classifier intercepted malicious exfiltration intent (Confidence: 94.8%). TideCloak Emergency Vault Lockdown triggered: Decryption authority refused."
         });
 
         const blockedReply = {
           id: `msg-${Date.now()}`,
           sender: "ai",
-          text: `⚠️ [CẢNH BÁO BẢO MẬT]: Yêu cầu chứa dấu hiệu tấn công Prompt Injection (F1: 0.93). TideCloak đã từ chối cấp thẩm quyền giải mã (Emergent Authority Denied). Lịch sử chat được bảo vệ an toàn.`,
+          text: `⚠️ [SECURITY ALERT]: Request blocked by Multilingual Guardrail (F1: 0.93). TideCloak Emergent Authority withheld. User records remain cryptographically locked.`,
           maskedEcho: `[BLOCKED BY MULTILINGUAL GUARDRAIL: PROMPT_INJECTION]`,
           timestamp: nowTime(),
           isWarning: true
@@ -143,18 +135,18 @@ export default function App() {
         return;
       }
 
-      // Normal Intelligent AI reply
+      // Contextual Response
       let aiPlain = "";
       let aiMasked = "";
 
       if (scan.entities.some((e) => e.type === "NAME" || e.type === "CCCD" || e.type === "STK")) {
-        const nameVal = scan.entities.find((e) => e.type === "NAME")?.value || "Khách hàng";
-        const stkVal = scan.entities.find((e) => e.type === "STK")?.value || "tài khoản";
-        aiPlain = `Dựa trên kết quả thẩm định hồ sơ của ${nameVal}:\n1. Đầy đủ tính pháp lý theo quy định tín dụng cá nhân và doanh nghiệp.\n2. Lịch sử giao dịch qua tài khoản ${stkVal} đạt điểm tín dụng Hạng A.\n3. Đáp ứng tiêu chuẩn bảo mật dữ liệu theo Điều 30 Luật BVDLCN số 91/2025/QH15.`;
-        aiMasked = `Dựa trên kết quả thẩm định hồ sơ của [NAME_1]:\n1. Đầy đủ tính pháp lý theo quy định tín dụng cá nhân và doanh nghiệp.\n2. Lịch sử giao dịch qua tài khoản [STK_1] đạt điểm tín dụng Hạng A.\n3. Đáp ứng tiêu chuẩn bảo mật dữ liệu theo Điều 30 Luật BVDLCN số 91/2025/QH15.`;
+        const nameVal = scan.entities.find((e) => e.type === "NAME")?.value || "the client";
+        const stkVal = scan.entities.find((e) => e.type === "STK")?.value || "account";
+        aiPlain = `Credit risk assessment for ${nameVal}:\n1. Validated legal status under institutional banking criteria.\n2. Operating cash flows via account ${stkVal} qualify for Tier-1 terms.\n3. Compliance verified: Article 30 Law 91/2025/QH15 (AI & Cloud Data Minimization).`;
+        aiMasked = `Credit risk assessment for [NAME_1]:\n1. Validated legal status under institutional banking criteria.\n2. Operating cash flows via account [STK_1] qualify for Tier-1 terms.\n3. Compliance verified: Article 30 Law 91/2025/QH15 (AI & Cloud Data Minimization).`;
       } else {
-        aiPlain = `Yêu cầu của bạn đã được xử lý an toàn qua kênh mã hóa Client-side TideCloak. Dữ liệu không lưu bản rõ trên Cloud AI.`;
-        aiMasked = `Yêu cầu của bạn đã được xử lý an toàn qua kênh mã hóa Client-side TideCloak. Dữ liệu không lưu bản rõ trên Cloud AI.`;
+        aiPlain = `Your request was processed securely via TideCloak Client-Side Envelope Encryption. Zero plaintext stored on cloud AI servers.`;
+        aiMasked = `Your request was processed securely via TideCloak Client-Side Envelope Encryption. Zero plaintext stored on cloud AI servers.`;
       }
 
       const aiReply = {
@@ -165,221 +157,214 @@ export default function App() {
         timestamp: nowTime()
       };
       setMessages((m) => [...m, aiReply]);
-    }, 700);
+    }, 600);
   }
 
-  // Attack 1: Simulate Rogue DBA Tampering Postgres Ciphertext
+  // Attack 1: Rogue DBA Tamper Simulation
   function handleSimulateDbaTamper() {
     setDbTampered(true);
     setAlert({
       type: "danger",
-      title: "💥 Vi phạm Tính toàn vẹn Mật mã: AES-GCM AAD Mismatch!",
-      message: "DBA độc hại đã tráo bản mã (Ciphertext) trong PostgreSQL. Khi tải về, WebCrypto HKDF-SHA256 phát hiện Additional Authenticated Data (AAD) không khớp với conv_id và msg_index. Lệnh sửa lén bị chặn đứng 100%!"
+      title: "💥 Cryptographic Integrity Violation: AES-GCM AAD Mismatch!",
+      message: "Rogue DBA attempted to swap ciphertext in PostgreSQL. WebCrypto HKDF-SHA256 verified Additional Authenticated Data (AAD): conv_id and msg_index mismatch detected. Tampered record dropped."
     });
   }
 
-  // Attack 2: Simulate God Admin Escalation (QEA Quorum Challenge)
+  // Attack 2: Quorum Challenge
   function handleTriggerQuorumChallenge() {
     setShowQuorumModal(true);
   }
 
-  // Approve Quorum Signatures
+  // Quorum Approve
   function handleQuorumApprove() {
     if (!quorumSignatures.includes("Admin 2 (Security Auditor)")) {
       setQuorumSignatures((prev) => [...prev, "Admin 2 (Security Auditor)"]);
-      showToast("Đã thu thập đủ 2/2 chữ ký Quorum độc lập! Yêu cầu thay đổi được thông qua.");
+      showToast("Quorum requirement met (2/2 independent signatures). Change approved.");
     }
   }
 
-  // Reject Quorum
+  // Quorum Reject
   function handleQuorumReject() {
     setShowQuorumModal(false);
     setAlert({
       type: "info",
-      title: "🛡️ Change Request Bị Từ Chối Bởi Quorum",
-      message: "Hội đồng Admin độc lập đã bấm REJECT. Thao tác tự cấp quyền giải mã kho dữ liệu của Admin nội bộ đã bị vô hiệu hóa."
+      title: "🛡️ Change Request Rejected by Quorum",
+      message: "Independent security council rejected the escalation attempt. Unilateral decryption role revoked."
     });
   }
 
-  // Crypto-Shredding (Right to be Forgotten)
+  // Crypto-Shredding
   function handleCryptoShred() {
     setIsShredded(true);
     setMessages([]);
     setAlert({
       type: "warning",
-      title: "🗑️ Crypto-Shredding Hoàn Tất (Quyền Được Xóa)",
-      message: "Khóa gốc K_conv và wrapped_dek trên TideCloak đã bị xóa sạch (NULL). Toàn bộ bản sao lưu database (DB Backups) cũ lập tức trở thành chuỗi rác vô nghĩa, không thể giải mã."
+      title: "🗑️ Crypto-Shredding Executed (Right to be Forgotten)",
+      message: "Conversation key K_conv and wrapped_dek purged (NULL). All historical PostgreSQL database backups are rendered permanently unrecoverable."
     });
   }
 
-  // Reset demo
+  // Reset Demo
   function handleResetDemo() {
     setIsShredded(false);
     setDbTampered(false);
     setAlert(null);
     setMessages(vaultData.defaultChatHistory);
     setQuorumSignatures(["Admin 1 (SecOps Lead)"]);
-    showToast("Đã khôi phục dữ liệu ban đầu cho kịch bản Demo.");
+    showToast("Demo environment reset to baseline.");
   }
 
   return (
     <div className="app-shell">
-      {/* 1. Header Topbar */}
+      {/* 1. Header Navigation */}
       <header className="topbar">
-        <div className="brand">
+        <a className="brand" href="#">
           <div className="brand-icon">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 20, height: 20 }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ width: 18, height: 18 }}>
               <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
-              <path d="M9 12l2 2 4-4" />
             </svg>
           </div>
-          <div className="brand-title-wrap">
-            <div className="brand-name">
-              PrivateChat Shield
-              <span className="compliance-badge">Luật BVDLCN 91/2025/QH15</span>
-            </div>
-            <span className="brand-tag">Lớp Bảo Mật & Giả Danh Hóa Cho Chat AI Với TideCloak</span>
+          <div className="brand-text">
+            <h1>PrivateChat Shield</h1>
+            <span className="brand-tag">Zero-Trust AI Privacy Gateway &middot; Powered by TideCloak</span>
           </div>
-        </div>
+        </a>
 
         <div className="top-right">
           {/* Role Switcher */}
-          <div className="role-selector-wrap">
-            <span className="role-label">VAI TRÒ:</span>
+          <div className="role-switch">
+            <label htmlFor="role-select">VIEW AS</label>
             <select
-              className="role-select"
+              id="role-select"
               value={viewRole}
               onChange={(e) => setViewRole(e.target.value)}
-              id="role-select"
             >
-              <option value="user">👤 Nhân viên Doanh nghiệp (Client Safe Zone)</option>
-              <option value="vendor">🌐 Cloud AI Gateway (Chỉ thấy Masked Token)</option>
-              <option value="admin">🛡️ Quản trị viên / DBA (Quorum Audit & DB)</option>
+              <option value="user">End User (Client Safe Zone)</option>
+              <option value="gateway">Cloud AI Gateway</option>
+              <option value="admin">Database Administrator</option>
             </select>
           </div>
 
+          {/* TideCloak Auth Button */}
+          <div className="auth-status">
+            <span className={`status-dot ${authenticated ? "active" : ""}`}></span>
+            <span>{authenticated ? `TideCloak · ${getValueFromToken?.("preferred_username") || "Signed in"}` : "TideCloak · Connected"}</span>
+          </div>
+
           {authenticated ? (
-            <button className="auth-btn" onClick={logout} id="btn-auth">
-              ✓ {getValueFromToken?.("preferred_username") || "TideCloak User"} · Đăng xuất
+            <button className="btn-auth" onClick={logout} id="btn-auth">
+              Sign out
             </button>
           ) : (
-            <button className="auth-btn" onClick={handleLogin} id="btn-auth">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 14, height: 14 }}>
-                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
-                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-              </svg>
-              Kết nối TideCloak IdP
+            <button className="btn-auth" onClick={handleLogin} id="btn-auth">
+              Connect TideCloak IdP
             </button>
           )}
         </div>
       </header>
 
-      {/* 2. Compliance & Metric Ribbon */}
-      <div className="compliance-banner">
-        <div className="banner-left">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 15, height: 15 }}>
+      {/* 2. Hero / Metric Strip */}
+      <div className="hero-ribbon">
+        <div className="ribbon-eyebrow">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 14, height: 14 }}>
             <circle cx="12" cy="12" r="10" />
             <line x1="12" y1="8" x2="12" y2="12" />
             <line x1="12" y1="16" x2="12.01" y2="16" />
           </svg>
-          <strong>Căn cứ Pháp lý:</strong> Khoản 1 Điều 30 Luật BVDLCN (Xử lý DLCN trong AI & Cloud) & Nghị định 13/2023/NĐ-CP.
+          <span>ZERO-TRUST AI CONFIDENTIALITY · LAW 91/2025/QH15 COMPLIANT</span>
         </div>
-        <div className="banner-stats">
-          <div className="stat-item">
-            <span>Tỷ lệ Lộ PII Ra Cloud:</span>
-            <span className="stat-val">0.00%</span>
+        <div className="ribbon-metrics">
+          <div className="metric-pill success">
+            <span>Direct PII Leakage:</span>
+            <strong>0.00%</strong>
           </div>
-          <div className="stat-item">
-            <span>Độ trễ Quét Client:</span>
-            <span className="stat-val">&lt; 4 ms</span>
+          <div className="metric-pill">
+            <span>Client Crypto Latency:</span>
+            <strong>&lt; 4ms</strong>
           </div>
-          <div className="stat-item">
-            <span>Khóa Bí Mật Server:</span>
-            <span className="stat-val">0% (Master Key Triệt Tiêu)</span>
+          <div className="metric-pill">
+            <span>Server Master Keys:</span>
+            <strong>0% (Ineffable Cryptography)</strong>
           </div>
         </div>
       </div>
 
-      {/* Global Alert Notification */}
+      {/* Alert Banner */}
       {alert && (
-        <div style={{ padding: "0.75rem 1.5rem 0" }}>
-          <div className={`alert-box ${alert.type}`}>
-            <div>
-              <strong>{alert.title}</strong>
-              <div style={{ marginTop: 2 }}>{alert.message}</div>
-            </div>
-            <button
-              onClick={() => setAlert(null)}
-              style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", fontSize: 16 }}
-            >
-              &times;
-            </button>
+        <div className={`alert-bar ${alert.type}`}>
+          <div>
+            <strong>{alert.title}</strong> — {alert.message}
           </div>
+          <button
+            onClick={() => setAlert(null)}
+            style={{ background: "none", border: "none", cursor: "pointer", fontSize: 16 }}
+          >
+            &times;
+          </button>
         </div>
       )}
 
-      {/* 3. Main 3-Column Synchronized Layout */}
-      <main className="main-layout">
-        {/* COLUMN 1: CLIENT SAFE ZONE (User View) */}
-        <section className="column-card">
-          <div className="col-header">
-            <div className="col-title-wrap">
-              <h2>👤 Cột 1: Trình duyệt Người dùng</h2>
-              <span className="col-sub">Vùng tin cậy duy nhất giữ bản rõ · WebCrypto AES-GCM</span>
+      {/* 3. Main 3-Column Synchronized Inspector */}
+      <main className="main-grid">
+        {/* COLUMN 1: CLIENT SAFE ZONE */}
+        <section className="col-card">
+          <div className="card-head">
+            <div className="card-title-group">
+              <h2>👤 Client Safe Zone</h2>
+              <span className="card-sub">In-Browser Decrypted View &middot; WebCrypto AES-GCM</span>
             </div>
             <button
-              className="pill-badge blue"
+              className="chip blue"
               style={{ cursor: "pointer" }}
-              onClick={() => setShowRealValuesOnClient(!showRealValuesOnClient)}
-              title="Nhấn để chuyển đổi chế độ xem tên thật và token"
+              onClick={() => setShowUnmasked(!showUnmasked)}
             >
-              {showRealValuesOnClient ? "👁️ Đang Unmask Tên thật" : "🔒 Đang hiển thị Token"}
+              {showUnmasked ? "👁️ Unmasked (Real Names)" : "🔒 Masked Tokens"}
             </button>
           </div>
 
-          {/* Chat Messages Scroll */}
-          <div className="chat-scroll-area">
+          {/* Chat Messages */}
+          <div className="chat-body">
             {messages.length === 0 ? (
-              <div style={{ textAlign: "center", color: "var(--text-muted)", marginTop: "2rem" }}>
-                Kho hội thoại đã bị Crypto-Shred. Không còn bản tin nào có thể giải mã.
+              <div style={{ textAlign: "center", color: "var(--text-muted)", marginTop: "3rem" }}>
+                Vault was crypto-shredded. Zero readable records remaining.
               </div>
             ) : (
               messages.map((m) => (
-                <div key={m.id} className={`message-row ${m.sender}`}>
-                  <div className="msg-meta">
-                    <span>{m.sender === "user" ? "Nguyễn Văn Hùng (Chuyên viên)" : "AI Trợ lý Thẩm định"}</span>
+                <div key={m.id} className={`chat-bubble ${m.sender}`}>
+                  <div className="bubble-meta">
+                    <span>{m.sender === "user" ? "Sarah Nguyen (User)" : "Confidential AI Assistant"}</span>
                     <span>&bull;</span>
                     <span>{m.timestamp}</span>
                   </div>
-                  <div className="msg-body">
-                    {showRealValuesOnClient ? m.text : (m.maskedText || m.maskedEcho || m.text)}
+                  <div className="bubble-text">
+                    {showUnmasked ? m.text : (m.maskedText || m.maskedEcho || m.text)}
                   </div>
                   {m.piiCount > 0 && (
-                    <div className="msg-pii-tags">
-                      <span className="msg-tag-badge">🛡️ Đã khử định danh {m.piiCount} thực thể PII</span>
-                      <span className="msg-tag-badge">Rủi ro: {m.riskScore}%</span>
+                    <div className="bubble-tags">
+                      <span className="bubble-tag-pill">🛡️ {m.piiCount} PII entities protected</span>
+                      <span className="bubble-tag-pill">Risk: {m.riskScore}%</span>
                     </div>
                   )}
                 </div>
               ))
             )}
             {chatLoading && (
-              <div className="message-row ai">
-                <div className="msg-meta">AI Trợ lý Thẩm định</div>
-                <div className="msg-body" style={{ fontStyle: "italic", color: "var(--text-muted)" }}>
-                  Đang khử định danh PII và suy luận qua AI Gateway...
+              <div className="chat-bubble ai">
+                <div className="bubble-meta">Confidential AI Assistant</div>
+                <div className="bubble-text" style={{ fontStyle: "italic", color: "var(--text-muted)" }}>
+                  Pseudonymizing PII & reasoning through zero-knowledge gateway...
                 </div>
               </div>
             )}
           </div>
 
-          {/* Preset Prompts Selector */}
-          <div className="prompt-presets">
-            <span style={{ fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: 600 }}>Thử nhanh:</span>
+          {/* Prompt Presets */}
+          <div className="presets-strip">
+            <span style={{ fontSize: "0.68rem", color: "var(--text-muted)", fontWeight: 700 }}>PRESETS:</span>
             {vaultData.samplePrompts.map((p) => (
               <button
                 key={p.id}
-                className="preset-chip"
+                className="preset-btn"
                 onClick={() => selectPreset(p.text)}
               >
                 {p.label}
@@ -387,208 +372,184 @@ export default function App() {
             ))}
           </div>
 
-          {/* Real-time PII Preview Bar */}
+          {/* Compact PII Pill Banner */}
           {livePii.entities.length > 0 && (
-            <div className="pii-preview-bar">
-              <div className="pii-preview-header">
-                <span>🛡️ Phát hiện {livePii.entities.length} thực thể PII (Khử trước khi gửi Cloud):</span>
-                <span className="pill-badge red">Rủi ro: {livePii.riskScore}% ({livePii.riskLevel})</span>
-              </div>
-              <div className="pii-chip-list">
+            <div className="pii-compact-bar">
+              <div className="pii-list">
+                <span style={{ fontWeight: 700, color: "#92400e" }}>PII DETECTED:</span>
                 {livePii.entities.map((e, idx) => (
-                  <span key={idx} className="pii-chip">
-                    {e.token} &rarr; {e.value}
+                  <span key={idx} className="pii-tag">
+                    {e.token}: {e.value}
                   </span>
                 ))}
               </div>
+              <span className="chip red">Risk: {livePii.riskScore}%</span>
             </div>
           )}
 
-          {/* Chat Input Form */}
-          <div className="chat-input-wrap">
-            <form className="chat-input-form" onSubmit={handleSendMessage}>
+          {/* Input Footer */}
+          <div className="chat-footer">
+            <form className="input-row" onSubmit={handleSendMessage}>
               <input
                 type="text"
-                className="chat-textarea"
-                placeholder="Nhập thông tin hồ sơ vay, CCCD, STK ngân hàng hoặc hợp đồng..."
+                className="input-box"
+                placeholder="Ask AI or paste credit dossiers, CCCD, banking records, contracts..."
                 value={inputVal}
                 onChange={(e) => setInputVal(e.target.value)}
                 disabled={isShredded}
-                id="chat-input-box"
+                id="chat-input"
               />
               <button
                 type="submit"
-                className="send-btn"
+                className="btn-send"
                 disabled={isShredded || !inputVal.trim()}
-                id="btn-send-message"
+                id="btn-send"
               >
-                Gửi AI
+                Send
               </button>
             </form>
           </div>
         </section>
 
-        {/* COLUMN 2: STATELESS AI GATEWAY ECHO (Cloud AI View) */}
-        <section className="column-card">
-          <div className="col-header">
-            <div className="col-title-wrap">
-              <h2>🌐 Cột 2: AI Gateway Echo</h2>
-              <span className="col-sub">Những gì Cloud LLM (Gemini/OpenAI) nhìn thấy · 0% PII</span>
+        {/* COLUMN 2: CLOUD AI GATEWAY ECHO */}
+        <section className="col-card">
+          <div className="card-head">
+            <div className="card-title-group">
+              <h2>🌐 AI Gateway Echo</h2>
+              <span className="card-sub">What Cloud LLMs (Gemini/OpenAI) Receive</span>
             </div>
-            <span className="pill-badge green">Stateless &middot; No Content Log</span>
+            <span className="chip green">Stateless &middot; 0% Logs</span>
           </div>
 
-          <div className="gateway-content">
-            {/* Anonymous Ticket Box */}
-            <div className="gateway-panel">
-              <div className="panel-title">
-                <span>🎫 Anonymous Quota Ticket (Tách Rời Danh Tính)</span>
-                <span className="pill-badge blue">HMAC-SHA256 Signed</span>
+          <div className="gateway-body">
+            {/* Anonymous Ticket Card */}
+            <div className="clean-card">
+              <div className="clean-card-head">
+                <span>Anonymous Quota Ticket</span>
+                <span className="chip blue">HMAC-SHA256</span>
               </div>
-              <div className="ticket-box">
-                <div><span className="ticket-prop">ticket_id:</span> {lastGatewayEcho.ticketId}</div>
-                <div><span className="ticket-prop">user_identity:</span> <span style={{ color: "#16a34a" }}>[REDACTED / ANONYMOUS]</span></div>
-                <div><span className="ticket-prop">sub_hash:</span> {lastGatewayEcho.userHash}</div>
-                <div><span className="ticket-prop">token_quota:</span> 4096 tokens (dùng 1 lần)</div>
-                <div><span className="ticket-prop">gateway_logging:</span> DISABLED (Tuân thủ Điều 20 & 21 Luật BVDLCN)</div>
+              <div className="ticket-data">
+                <div><span>ticket_id:</span> {gatewayEcho.ticketId}</div>
+                <div><span>user_identity:</span> <strong style={{ color: "#16a34a" }}>[ANONYMOUS / UNLINKED]</strong></div>
+                <div><span>sub_hash:</span> {gatewayEcho.userHash}</div>
+                <div><span>quota_limit:</span> 4,096 tokens (single-use)</div>
+                <div><span>content_logging:</span> DISABLED</div>
               </div>
             </div>
 
-            {/* Prompt Transmitted to Cloud */}
-            <div className="gateway-panel" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
-              <div className="panel-title">
-                <span>Prompt Đã Giả Danh Hóa Truyền Tới Cloud AI</span>
-                <span className="pill-badge amber">100% Tokenized</span>
+            {/* Tokenized Stream */}
+            <div className="clean-card" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+              <div className="clean-card-head">
+                <span>Pseudonymized Prompt Stream</span>
+                <span className="chip amber">Tokenized</span>
               </div>
-              <div className="masked-stream-box" style={{ flex: 1 }}>
-                {lastGatewayEcho.maskedPrompt ? (
-                  lastGatewayEcho.maskedPrompt.split(/(\[[A-Z]+_\d+\])/g).map((part, i) =>
+              <div className="tokenized-box" style={{ flex: 1 }}>
+                {gatewayEcho.maskedPrompt ? (
+                  gatewayEcho.maskedPrompt.split(/(\[[A-Z]+_\d+\])/g).map((part, i) =>
                     /\[[A-Z]+_\d+\]/.test(part) ? (
-                      <span key={i} className="masked-token-highlight">{part}</span>
+                      <span key={i} className="token-highlight">{part}</span>
                     ) : (
                       part
                     )
                   )
                 ) : (
-                  <span style={{ color: "var(--text-muted)" }}>Chưa có prompt nào được gửi đi...</span>
+                  <span style={{ color: "var(--text-muted)" }}>No outbound prompts recorded.</span>
                 )}
               </div>
             </div>
 
-            {/* Security Explanation */}
-            <div className="gateway-panel" style={{ background: "#f8fafc" }}>
-              <div style={{ fontSize: "0.74rem", color: "var(--text-secondary)", lineHeight: 1.5 }}>
-                💡 <strong>Điểm Chấm Hackathon:</strong> Cloud LLM hoàn toàn không biết ai là người gửi (CCCD, Họ tên, STK đều đã biến thành biến tượng trưng). Khi AI trả lời về, máy khách tại Cột 1 tự động ghép lại tên thật trên RAM của người dùng.
+            <div className="clean-card" style={{ background: "#f8fafc" }}>
+              <div style={{ fontSize: "0.72rem", color: "var(--text-secondary)", lineHeight: 1.45 }}>
+                💡 <strong>Core Insight:</strong> Cloud models receive zero citizen PII (CCCD, names, and accounts are anonymized symbolic variables). Real identity never crosses borders.
               </div>
             </div>
           </div>
         </section>
 
-        {/* COLUMN 3: POSTGRES LIVE INSPECTOR & CRYPTOGRAPHIC DEFENSE */}
-        <section className="column-card">
-          <div className="col-header">
-            <div className="col-title-wrap">
-              <h2>🛡️ Cột 3: PostgreSQL & Phòng Thủ</h2>
-              <span className="col-sub">100% Ciphertext AES-256-GCM · Quorum QEA</span>
+        {/* COLUMN 3: STORAGE & DEFENSE */}
+        <section className="col-card">
+          <div className="card-head">
+            <div className="card-title-group">
+              <h2>🛡️ Storage & Defense</h2>
+              <span className="card-sub">PostgreSQL Ledger &middot; TideCloak QEA</span>
             </div>
-            <span className={`pill-badge ${dbTampered ? "red" : isShredded ? "amber" : "blue"}`}>
-              {dbTampered ? "TAMPER DETECTED" : isShredded ? "CRYPTO-SHREDDED" : "TIDECLOAK ORK SECURED"}
+            <span className={`chip ${dbTampered ? "red" : isShredded ? "amber" : "blue"}`}>
+              {dbTampered ? "TAMPER BLOCKED" : isShredded ? "SHREDDED" : "ORK PROTECTED"}
             </span>
           </div>
 
-          <div className="defense-content">
-            {/* DB Table Inspection */}
-            <div className="action-card">
-              <div className="action-card-header">
-                <span className="action-card-title">
-                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 14, height: 14 }}>
-                    <ellipse cx="12" cy="5" rx="9" ry="3" />
-                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
-                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
-                  </svg>
-                  Trực quan Cơ sở dữ liệu: SELECT * FROM messages
-                </span>
-                <span style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>0% Plaintext</span>
+          <div className="storage-body">
+            {/* Table Inspection */}
+            <div className="action-row-card">
+              <div className="action-row-top">
+                <span className="action-row-title">PostgreSQL: messages (0% Plaintext)</span>
+                <span style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>AES-256-GCM</span>
               </div>
-              <p className="action-desc">
-                Cơ sở dữ liệu lưu tại máy chủ hoàn toàn là chuỗi mã hóa. Không chứa tên, CCCD hay nội dung chat.
-              </p>
-              <div style={{ overflowX: "auto" }}>
-                <table className="db-table-preview">
-                  <thead>
-                    <tr>
-                      <th>conv_id</th>
-                      <th>role</th>
-                      <th>iv (12B)</th>
-                      <th>ciphertext (AES-GCM)</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td>c81a...</td>
-                      <td>user</td>
-                      <td>8f91...</td>
-                      <td>{isShredded ? "NULL" : "ENC::AES-256-GCM::d8e0...4a12"}</td>
-                    </tr>
-                    <tr>
-                      <td>c81a...</td>
-                      <td>assistant</td>
-                      <td>3b77...</td>
-                      <td>{isShredded ? "NULL" : "ENC::AES-256-GCM::1a99...fe30"}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
+              <table className="compact-table">
+                <thead>
+                  <tr>
+                    <th>conv_id</th>
+                    <th>role</th>
+                    <th>iv (96b)</th>
+                    <th>ciphertext</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>c81a...</td>
+                    <td>user</td>
+                    <td>8f91...</td>
+                    <td>{isShredded ? "NULL" : "ENC::AES-GCM::d8e0...4a12"}</td>
+                  </tr>
+                  <tr>
+                    <td>c81a...</td>
+                    <td>assistant</td>
+                    <td>3b77...</td>
+                    <td>{isShredded ? "NULL" : "ENC::AES-GCM::1a99...fe30"}</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
 
-            {/* Attack Button 1: Rogue DBA Tampering */}
-            <div className="action-card">
-              <div className="action-card-header">
-                <span className="action-card-title">💥 Đòn 1: Giả lập DBA Độc hại Sửa trộm DB</span>
-                <span className="pill-badge red">Tấn công Dữ liệu</span>
+            {/* Action 1: DBA Tamper */}
+            <div className="action-row-card">
+              <div className="action-row-top">
+                <span className="action-row-title">💥 Attack 1: Rogue DBA Tamper</span>
+                <span className="chip red">Integrity Test</span>
               </div>
-              <p className="action-desc">
-                Thử nghiệm tình huống DBA / Cloud Admin có quyền Root tự ý đổi bản mã hoặc tráo tin nhắn trong PostgreSQL.
-              </p>
               <button
-                className="btn-action danger"
+                className="btn-ctrl danger"
                 onClick={handleSimulateDbaTamper}
                 id="btn-simulate-dba"
               >
-                Giả lập DBA Tamper: Sửa Ciphertext
+                Simulate Rogue DBA: Alter Ciphertext
               </button>
             </div>
 
-            {/* Attack Button 2: Quorum QEA Challenge */}
-            <div className="action-card">
-              <div className="action-card-header">
-                <span className="action-card-title">⚖️ Đòn 2: Quorum Chống "God Admin" (QEA)</span>
-                <span className="pill-badge amber">TideCloak QEA</span>
+            {/* Action 2: Quorum Governance */}
+            <div className="action-row-card">
+              <div className="action-row-top">
+                <span className="action-row-title">⚖️ Attack 2: God Admin Escalation</span>
+                <span className="chip amber">Quorum QEA</span>
               </div>
-              <p className="action-desc">
-                Admin độc hại cố gắng tự cấp quyền giải mã kho tài liệu VIP. Lệnh bị chặn thành Change Request đòi Quorum &ge; 2 chữ ký.
-              </p>
               <button
-                className="btn-action warning"
+                className="btn-ctrl amber"
                 onClick={handleTriggerQuorumChallenge}
                 id="btn-simulate-quorum"
               >
-                Mở Thử thách Quorum (Mời Giám khảo duyệt)
+                Trigger Quorum Approval Challenge
               </button>
             </div>
 
-            {/* Action 3: Crypto-Shredding */}
-            <div className="action-card">
-              <div className="action-card-header">
-                <span className="action-card-title">🗑️ Đòn 3: Crypto-Shredding ("Quyền Được Xóa")</span>
-                <span className="pill-badge blue">GDPR / Nghị định 13</span>
+            {/* Action 3: Crypto-Shred */}
+            <div className="action-row-card">
+              <div className="action-row-top">
+                <span className="action-row-title">🗑️ Action 3: Crypto-Shredding</span>
+                <span className="chip blue">GDPR / Decree 13</span>
               </div>
-              <p className="action-desc">
-                Xóa sạch wrapped_dek trên TideCloak, biến toàn bộ dữ liệu lịch sử và các bản DB backup cũ thành rác vô nghĩa vĩnh viễn.
-              </p>
               <div style={{ display: "flex", gap: "0.5rem" }}>
                 <button
-                  className="btn-action danger"
+                  className="btn-ctrl danger"
                   style={{ flex: 1 }}
                   onClick={handleCryptoShred}
                   id="btn-crypto-shred"
@@ -596,12 +557,12 @@ export default function App() {
                   Crypto-Shred
                 </button>
                 <button
-                  className="btn-action primary"
+                  className="btn-ctrl blue"
                   style={{ flex: 1 }}
                   onClick={handleResetDemo}
                   id="btn-reset-demo"
                 >
-                  Khôi phục Demo
+                  Reset Demo
                 </button>
               </div>
             </div>
@@ -609,11 +570,11 @@ export default function App() {
         </section>
       </main>
 
-      {/* 4. Quorum Change Request Modal (Interactive for Judges) */}
+      {/* 4. Quorum Approval Modal */}
       {showQuorumModal && (
-        <div className="modal-overlay">
-          <div className="modal-dialog">
-            <div className="modal-header">
+        <div className="modal-backdrop">
+          <div className="modal-box">
+            <div className="modal-head">
               <h3>⚖️ TideCloak Change Request #CR-2026-89</h3>
               <button
                 onClick={() => setShowQuorumModal(false)}
@@ -622,52 +583,54 @@ export default function App() {
                 &times;
               </button>
             </div>
-            <div className="modal-body">
-              <div className="alert-box danger">
-                <strong>Phát hiện Yêu cầu Nâng Quyền Bất thường:</strong>
-                <div>Admin `db_admin_root` cố gắng tự gán quyền <code>_tide_chat.selfdecrypt</code> để giải mã hội thoại khách hàng.</div>
+            <div className="modal-content">
+              <div className="alert-bar danger" style={{ margin: 0 }}>
+                <div>
+                  <strong>Privilege Escalation Intercepted:</strong>
+                  <div>Admin <code>db_admin_root</code> attempted unilateral assignment of decryption role <code>_tide_chat.selfdecrypt</code>.</div>
+                </div>
               </div>
               <div>
-                <strong>Cơ chế Quorum-Enforced Governance (QEA):</strong>
+                <strong>Quorum-Enforced Governance (QEA):</strong>
                 <p style={{ color: "var(--text-secondary)", marginTop: 4 }}>
-                  TideCloak đã chặn lệnh thực thi trực tiếp. Cần ít nhất <strong>2 chữ ký số độc lập</strong> từ Hội đồng Quản trị Bảo mật trước khi cấp quyền:
+                  TideCloak blocked execution. Requires at least <strong>2 independent digital signatures</strong> before role activation:
                 </p>
               </div>
-              <div style={{ background: "#f8fafc", padding: "0.75rem", borderRadius: "var(--radius-md)", border: "1px solid var(--border-light)" }}>
-                <div style={{ fontWeight: 600, marginBottom: 6, fontSize: "0.75rem" }}>
-                  Tiến độ Chữ ký Quorum: {quorumSignatures.length} / 2
+              <div style={{ background: "#f8fafc", padding: "0.75rem", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-light)" }}>
+                <div style={{ fontWeight: 600, fontSize: "0.74rem", marginBottom: 4 }}>
+                  Quorum Progress: {quorumSignatures.length} / 2 Signatures
                 </div>
                 {quorumSignatures.map((sig, i) => (
-                  <div key={i} style={{ color: "#166534", fontSize: "0.75rem", display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
-                    <span>✓</span> <strong>{sig}</strong> — Đã ký bằng WebCrypto Ed25519 (0x7f1a...40b)
+                  <div key={i} style={{ color: "#166534", fontSize: "0.74rem", display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
+                    <span>✓</span> <strong>{sig}</strong> — WebCrypto Ed25519 signature verified (0x7f1a...40b)
                   </div>
                 ))}
                 {quorumSignatures.length < 2 && (
-                  <div style={{ color: "#b45309", fontSize: "0.75rem", display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
-                    <span>⏳</span> Đang chờ Chữ ký số của Giám khảo / Admin 2...
+                  <div style={{ color: "#b45309", fontSize: "0.74rem", display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
+                    <span>⏳</span> Awaiting signature from Judge / Admin 2...
                   </div>
                 )}
               </div>
             </div>
-            <div className="modal-footer">
-              <button className="btn-action danger" style={{ width: "auto", padding: "0.4rem 1rem" }} onClick={handleQuorumReject}>
-                Từ chối (Reject Attack)
+            <div className="modal-foot">
+              <button className="btn-ctrl danger" style={{ width: "auto", padding: "0.4rem 1rem" }} onClick={handleQuorumReject}>
+                Reject Request
               </button>
               <button
-                className="btn-action primary"
+                className="btn-ctrl blue"
                 style={{ width: "auto", padding: "0.4rem 1rem" }}
                 onClick={handleQuorumApprove}
                 disabled={quorumSignatures.length >= 2}
               >
-                {quorumSignatures.length >= 2 ? "✓ Quorum Đã Đủ (Approved)" : "Ký Duyệt (Admin 2 / Giám khảo)"}
+                {quorumSignatures.length >= 2 ? "✓ Quorum Met (Approved)" : "Approve & Sign (Admin 2 / Judge)"}
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Floating Toast Notification */}
-      {toast && <div className="toast-notice">{toast}</div>}
+      {/* Floating Toast Notice */}
+      {toast && <div className="toast-bar">{toast}</div>}
     </div>
   );
 }
