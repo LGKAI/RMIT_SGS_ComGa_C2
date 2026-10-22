@@ -49,16 +49,17 @@ gantt
 
 ---
 
-### [0:20 - 0:35] Scene 2: The 3-Column Zero-Knowledge Architecture
+### [0:20 - 0:35] Scene 2: The 3-Column Zero-Knowledge Architecture & Perspective Switcher
 
 * **Visual on Screen:**
   - Pan camera / guide mouse smoothly across the 3 columns from left to right:
-    1. **Column 1 (Left - 40%):** `Confidential AI Chat` — User view with real-time client-side reconstitution.
-    2. **Column 2 (Middle - 30%):** `Zero-Knowledge Gateway (Cloud LLM View)` — Demonstrates tokenized prompts and `0.00%` direct PII leakage.
-    3. **Column 3 (Right - 30%):** `DBA Audit Vault & Live Attack Simulator` — Shows AES-GCM-256 encrypted storage, HMAC audit trails, and zero plaintexts.
+    1. **Column 1 (Left - 40%):** `Client Safe Zone` — User view with real-time client-side reconstitution.
+    2. **Column 2 (Middle - 30%):** `AI Gateway Echo` — Demonstrates tokenized prompts and `0.00%` direct PII leakage.
+    3. **Column 3 (Right - 30%):** `DBA Vault & Attack Lab` — Shows AES-GCM-256 encrypted storage, HMAC audit trails, and live attack simulators.
+  - Hover or click the Segmented Navigation Pills (`[🖥️ Tri-Pane]`, `[👤 End User]`, `[🌐 AI Gateway]`, `[🛡️ DBA & Attack Lab]`) to demonstrate that judges can either view all layers simultaneously or focus 100% on a specific persona!
 
 * **🎙️ English Voiceover Narration:**
-  > *"Our interface features a real-time three-column split view. On the left is the user's conversational interface. In the center is the Zero-Knowledge Gateway showing the exact anonymized prompt transmitted to the cloud LLM. On the right is the DBA Audit Vault, proving that even database administrators only see AES-GCM-256 encrypted ciphertexts."*
+  > *"Our interface features a real-time synchronized three-column inspector. On the left is the user's conversational interface. In the center is the Zero-Knowledge Gateway showing the exact anonymized prompt transmitted to cloud LLMs. On the right is the DBA Audit Vault and Live Attack Lab. Users and auditors can switch perspectives using the navigation pills at any time."*
 
 ---
 
