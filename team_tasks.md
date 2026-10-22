@@ -1,122 +1,146 @@
-# 📋 KẾ HOẠCH PHÂN CHIA NHIỆM VỤ ĐỘI THI (TEAM TASK ASSIGNMENT)
+# 🏥 KẾ HOẠCH TÁC CHIẾN CHALLENGE 2: TIDE "UNLOCKED"
 **Cuộc thi:** RMIT Hackathon 2026  
-**Tên đội (Group Name):** `RMIT_SGS_ComGa`  
-- Challenge 1: `RMIT_SGS_ComGa_C1` (Kaggle)
-- Challenge 2: `RMIT_SGS_ComGa_C2` (Tide Foundation - UNLOCKED)  
-**Thời gian hiện tại:** 14:00 ngày 22/10/2026  
-**DEADLINE NỘP BÀI:** **18:00 ngày 22/10/2026** (Cần hoàn tất mọi thứ trước 17:00 để an toàn)
+**Nhóm:** `RMIT_SGS_ComGa_C2`  
+**Đơn vị tài trợ thử thách:** Tide Foundation  
+**Hạn nộp bài chính thức:** **18:00 ngày 22/10/2026** (Mục tiêu team nộp trước 16:30)
 
 ---
 
-## 👥 DANH SÁCH THÀNH VIÊN VÀ PHÂN CÔNG CHÍNH
+## PHẦN 1: TỔNG QUAN VẤN ĐỀ (CHO CẢ NHÓM NẮM RÕ)
 
-| STT | Họ và Tên | Vai trò chính | Trọng tâm phụ trách |
-| :---: | :--- | :--- | :--- |
-| **1** | **Lê Gia Khánh** | **Team Leader & Full-Stack Lead** | Quản lý tiến độ chung, Repository GitHub, chốt nộp sản phẩm cả 2 Challenge. |
-| **2** | **Trần Trung Hiếu** | **Media & Storytelling Lead** | Quay, thu âm và dựng Video Demo 2 phút (`Video.mp4` < 100MB) cho Challenge 2. |
-| **3** | **Phạm Chấn Khoa** | **AI / Machine Learning Lead** | Huấn luyện mô hình XLM-RoBERTa trên Kaggle, tối ưu F1-score & nộp bài Challenge 1. |
-| **4** | **Cái Hoàng Bảo Kin** | **QA / Product & Documentation Lead** | Kiểm thử Web Prototype CarePassport, rà soát tiêu chí chấm điểm, chuẩn bị form nộp bài. |
+### 1. Đề bài Challenge 2 là gì?
+Ban tổ chức (Tide Foundation) đặt ra một bài toán mở:  
+> *"Bạn sẽ xây dựng điều gì nếu niềm tin không còn là nút thắt cổ chai (Trust Bottleneck)?"*
+
+* **Vấn đề của thế giới hiện nay (Hệ thống truyền thống):**
+  Trong hầu hết các ứng dụng y tế, tài chính hay dữ liệu hiện nay, luôn có một **Super Admin** (hoặc quản trị viên server/database) nắm giữ **Master Key** (Chìa khóa vạn năng). Dù có phân quyền thế nào thì một anh IT bệnh viện hay một hacker chiếm được server backend vẫn có thể **đơn phương (unilateral override)** xem trộm bệnh án, bán dữ liệu nhạy cảm hoặc sửa đổi thông tin.
+  $\rightarrow$ Vì **người dùng và các tổ chức sợ bị lạm quyền**, nên nhiều ý tưởng hợp tác chia sẻ dữ liệu không dám triển khai (gọi là *Trust Bottleneck*).
+
+* **Công nghệ TideCloak (Emergent Authority) giải quyết thế nào?**
+  * Slogan cốt lõi của Tide: **"Authority for an action, with NO master key to keep"** (Thẩm quyền hành động mà không ai giữ chìa khóa vạn năng).
+  * **Không một ai** (kể cả Admin, Bác sĩ hay Giám đốc bệnh viện) có quyền tự ý mở khóa dữ liệu một mình. Quyền giải mã chỉ **tự động phát sinh (emerge)** khi chính sách bảo mật của bệnh nhân VÀ chữ ký của bác sĩ khớp nhau về mặt toán học.
+
+* **Tiêu chí chấm điểm của Giám khảo (Rất khắt khe):**
+  * **25% Vision & Originality:** Ý tưởng đột phá, nhân văn.
+  * **20% Trust Constraint Insight:** Chỉ rõ cái gì đang bị kìm hãm vì sợ lộ/lạm quyền.
+  * **20% Value & Impact:** Lợi ích cứu sống con người / minh bạch dữ liệu.
+  * **20% Why TideCloak Matters:** Giám khảo cảnh báo: *Nếu app của bạn làm bằng cơ chế login/phân quyền admin thông thường mà cũng chạy được thì sẽ bị chấm điểm rất thấp!* Phải chứng minh TideCloak ngăn chặn được hành vi Admin lạm quyền.
+  * **15% Prototype & Storytelling:** Bản demo chạy mượt, giao diện đẹp và video 2 phút thuyết phục.
 
 ---
 
-## 🎯 CHI TIẾT NHIỆM VỤ TỪNG THÀNH VIÊN
+### 2. Ý tưởng của nhóm: CarePassport (Hồ sơ bệnh án đa viện)
+*CarePassport* là ý tưởng gợi ý số 1 của chính Ban tổ chức Tide:
+* **Bối cảnh thực tế:** Bệnh nhân Sarah đi khám gãy tay ở Bệnh viện Chợ Rẫy. Bác sĩ cần biết ngay Sarah có bị dị ứng thuốc kháng sinh Penicillin không để kê đơn cấp cứu. Nhưng Sarah rất sợ nếu chia sẻ toàn bộ hồ sơ thì nhân viên IT bệnh viện sẽ đọc trộm hồ sơ khám Tâm thần hay xét nghiệm Di truyền bí mật của cô.
+* **Cách CarePassport giải quyết với TideCloak:**
+  1. **Bệnh nhân làm chủ quyền:** Sarah tự bật/tắt chia sẻ cho từng mục (cho phép xem Dị ứng, khóa chặt mục Tâm thần).
+  2. **Bác sĩ xem an toàn:** Bác sĩ mở ra chỉ giải mã được mục Dị ứng. Mục Tâm thần hiển thị dưới dạng chuỗi mật mã khóa kín (Zero-Knowledge Ciphertext).
+  3. **Chặn đứng Admin gian lận:** Nếu một IT Admin bệnh viện cố tình bấm "Force Dump" database để trộm dữ liệu $\rightarrow$ Hệ thống TideCloak lập tức báo động đỏ: **BLOCKED: Unilateral Override Denied! (Không tồn tại Master Key)**.
+  4. **Cấp cứu khẩn cấp (Dual-Consensus):** Nếu bệnh nhân hôn mê, cần 2 bên cùng ký duyệt (Bác sĩ + Đại diện Hội đồng Y đức) thì thẩm quyền cấp cứu mới phát sinh.
+
+---
+
+### 3. Những gì Khánh đã làm xong (Hiện trạng dự án):
+1. **Source Code Prototype hoàn chỉnh:** Đã lập trình bằng Vite + React + `@tidecloak/react` + giao diện Dark Mode Cyber-Medical cực kỳ xịn sò.
+2. **Đã test các luồng chạy:** Chạy mượt tại `http://localhost:5173/`, có đủ 4 góc nhìn (Bệnh nhân, Bác sĩ, Hội đồng Y đức, Rogue Admin gian lận).
+3. **Đã viết xong `README.md`:** Chuẩn 100% template 5 câu hỏi của Tide, độ dài ~270 từ (đạt chuẩn quy định < 300 từ của BTC).
+4. **Đã cấu hình `.gitignore` sạch đẹp:** Không dính file rác hay file Challenge 1.
+5. **Đã tạo và push code lên GitHub:** Repo `RMIT_SGS_ComGa_C2` ở chế độ Public.
+
+---
+
+### 4. Nhóm cần làm thêm những gì nữa để hoàn tất 100% bài nộp?
+Chỉ còn **3 việc then chốt** cần làm trước 16:30:
+1. **Quay Video Demo 2 phút (`Video.mp4` < 100MB):** Đặt trực tiếp vào thư mục gốc của GitHub repo. Đây là yêu cầu bắt buộc của BTC.
+2. **Kiểm thử chéo trên máy thành viên:** Đảm bảo clone về chạy được ngay không bị lỗi môi trường.
+3. **Điền Google Form nộp bài:** Link form: `https://forms.gle/HRHYjnqB86j1LFS97`.
+
+---
+
+## PHẦN 2: PHÂN CHIA NHIỆM VỤ 4 THÀNH VIÊN
+
+```
+                 ┌────────────────────────────────┐
+                 │     LÊ GIA KHÁNH (Lead)        │
+                 │ Quản trị Repo & Chốt Nộp Form  │
+                 └───────────────┬────────────────┘
+                                 │
+         ┌───────────────────────┼───────────────────────┐
+         │                       │                       │
+┌────────┴────────┐     ┌────────┴────────┐     ┌────────┴────────┐
+│ TRẦN TRUNG HIẾU │     │ PHẠM CHẤN KHOA  │     │ CÁI HOÀNG B.KIN │
+│ Quay Video 2 Phút│    │ Test Clone & Run│     │ QA, Review Web  │
+│  (Video.mp4)    │     │ & Kỹ thuật Tide │     │ & Chuẩn bị Form │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+```
 
 ### 1. Lê Gia Khánh (Team Leader & Full-Stack Lead)
-* [ ] **Điều phối chung:** Giám sát tiến độ của 3 thành viên, giải quyết ngay lập tức các nút thắt kỹ thuật.
-* [ ] **Quản trị GitHub (`RMIT_SGS_ComGa_C2`):**
-  - Đảm bảo repo ở chế độ **Public**.
-  - Kiểm tra các commit, đảm bảo code chạy ổn định trên nhánh `main`.
-  - Tiếp nhận file `Video.mp4` từ Hiếu để commit lên root repo trước 16:30.
-* [ ] **Hỗ trợ kỹ thuật:**
-  - Hỗ trợ Khoa nếu Kaggle gặp lỗi OOM hoặc CUDA.
-  - Hỗ trợ Hiếu các góc quay màn hình và hiệu ứng của app CarePassport.
-* [ ] **Tổng duyệt nộp bài (17:00 - 17:30):**
-  - Kiểm tra lần cuối link GitHub và Google Form Challenge 2 (`https://forms.gle/HRHYjnqB86j1LFS97`).
-  - Kiểm tra submission trên Kaggle cho Challenge 1.
+* [ ] Kiểm tra trạng thái GitHub repo `RMIT_SGS_ComGa_C2` (chắc chắn Public).
+* [ ] Chạy dev server tại máy local để hỗ trợ Hiếu trong lúc quay video (nếu Hiếu cần màn hình demo).
+* [ ] Tiếp nhận file `Video.mp4` từ Hiếu (kiểm tra < 100MB, < 2 phút), commit và push thẳng vào root repo.
+* [ ] Điền link repo vào Google Form nộp bài trước 16:30, chụp ảnh xác nhận gửi nhóm.
+
+### 2. Trần Trung Hiếu (Media & Storytelling Lead — NHIỆM VỤ SỐNG CÒN)
+> ⚠️ **Video.mp4 là điều kiện tiên quyết để được chấm điểm.** Video phải dưới 2 phút và dung lượng dưới 100MB.
+
+* [ ] Mở trình duyệt vào app: `http://localhost:5173/` (hoặc phối hợp với Khánh để share màn hình).
+* [ ] Dùng phần mềm quay màn hình (OBS Studio, Camtasia, Loom, hoặc phím tắt `Win + Alt + R` trên Windows).
+* [ ] **Quay và thuyết minh đúng theo 4 phân cảnh mẫu của BTC (Kịch bản chi tiết bên dưới):**
+  1. *Phút 0:00 - 0:30:* Ý tưởng CarePassport là gì?
+  2. *Phút 0:30 - 0:50:* Nút thắt niềm tin (sợ Admin IT xem trộm bệnh án).
+  3. *Phút 0:50 - 1:40:* Demo app (Bệnh nhân toggle quyền $\rightarrow$ Bác sĩ thấy giải mã $\rightarrow$ **Bấm nút Rogue Admin "Force DB Dump" để thấy bảng đỏ BLOCKED** $\rightarrow$ Ký duyệt cấp cứu Dual-Consensus).
+  4. *Phút 1:40 - 2:00:* Ý nghĩa mang lại cho y tế và người bệnh.
+* [ ] Xuất file: Đặt tên chính xác là **`Video.mp4`**, kiểm tra dung lượng **< 100MB**, gửi cho Khánh trước **16:00**.
+
+### 3. Phạm Chấn Khoa (Cross-Platform Testing & Technical Support)
+* [ ] Thực hiện Clone repo từ GitHub về máy cá nhân:
+  ```bash
+  git clone https://github.com/leogiakhanh/RMIT_SGS_ComGa_C2.git
+  cd RMIT_SGS_ComGa_C2
+  npm install
+  npm run dev
+  ```
+* [ ] Xác nhận xem trên máy của Khoa app có hiển thị đầy đủ, font chữ và các nút bấm có hoạt động trơn tru không (đảm bảo giám khảo clone về chấm bài là chạy 100%).
+* [ ] Hỗ trợ Hiếu: Nếu Hiếu cần một người cùng đọc thoại tiếng Anh hoặc cần gõ phụ đề ngắn cho video.
+* [ ] Nắm vững cơ chế TideCloak Emergent Authority (nằm ở thẻ bên phải màn hình) để sẵn sàng nếu có phần Q&A với giám khảo.
+
+### 4. Cái Hoàng Bảo Kin (Product QA & Submission Verification)
+* [ ] **Kiểm thử chi tiết (QA Checklist):**
+  - Click thử vai Bệnh nhân: Gạt tắt mục Dị ứng $\rightarrow$ Kiểm tra Bác sĩ có bị khóa không.
+  - Bấm nút đỏ "Emergency Lockdown" $\rightarrow$ Xem tất cả thẻ có bị khóa hết không.
+  - Click vai Rogue Admin $\rightarrow$ Bấm cả 3 nút tấn công $\rightarrow$ Kiểm tra thông báo đỏ có nhảy ra không.
+  - Kiểm tra bảng **Immutable Audit Trail** xem các dòng log có xuất hiện không.
+* [ ] **Kiểm tra hồ sơ nộp:**
+  - Soát lại file `README.md` trên giao diện web GitHub (đảm bảo không bị vỡ Markdown, nội dung súc tích dưới 300 từ).
+  - Chuẩn bị sẵn link và thông tin nộp bài:
+    - Group Name: `RMIT_SGS_ComGa_C2`
+    - Form nộp: `https://forms.gle/HRHYjnqB86j1LFS97`
+* [ ] Cùng Hiếu review video xuất ra xem âm thanh có rõ và thời lượng có đúng dưới 2 phút không.
 
 ---
 
-### 2. Trần Trung Hiếu (Media & Storytelling Lead - Trọng tâm Challenge 2)
-> ⚠️ **Nhiệm vụ sống còn:** Challenge 2 bắt buộc phải có file `Video.mp4` (< 100MB, thời lượng tối đa 2 phút) nằm ngay tại thư mục gốc của GitHub.
+## PHẦN 3: KỊCH BẢN QUAY VIDEO DEMO 2 PHÚT (CHO HIẾU & NHÓM)
 
-* [ ] **Chuẩn bị công cụ:** Cài đặt phần mềm quay màn hình (OBS Studio, Camtasia, Loom, hoặc dùng phím tắt `Win + G` / `Win + Alt + R` trên Windows).
-* [ ] **Thực hiện quay video (theo 4 phân cảnh chuẩn của BTC Tide):**
-  1. **0:00 - 0:30 (The Possibility):** Giới thiệu CarePassport — nền tảng y tế đa viện loại bỏ rủi ro rò rỉ bệnh án, trao quyền tối thượng cho bệnh nhân.
-  2. **0:30 - 0:50 (The Constraint):** Trình bày "Nút thắt niềm tin": Trong hệ thống viện truyền thống, Admin IT giữ Master Key nên có thể xem trộm/bán dữ liệu nhạy cảm (tâm thần, di truyền).
-  3. **0:50 - 1:40 (The Prototype & TideCloak Role):**
-     - Mở web `http://localhost:5173/`.
-     - Thao tác Bệnh nhân bật chia sẻ Dị ứng, khóa Bệnh án Tâm thần.
-     - Bấm vai Bác sĩ: Thấy mục được mở đã giải mã, mục khóa là chuỗi mật mã vàng (Ciphertext).
-     - **Điểm nhấn ăn tiền:** Bấm vai Rogue Admin $\rightarrow$ Bấm "Force Unilateral DB Dump" $\rightarrow$ Chỉ vào banner đỏ **UNILATERAL OVERRIDE BLOCKED BY TIDECLOAK** (chứng minh hệ thống không hề có Master Key).
-     - Bấm vai Ethics Overseer $\rightarrow$ Ký duyệt cấp cứu (Dual-Consensus 2-of-2).
-  4. **1:40 - 2:00 (What Changes):** Tóm tắt lợi ích: Cứu sống bệnh nhân trong cấp cứu tức thời mà vẫn bảo vệ quyền riêng tư tuyệt đối bằng toán học.
-* [ ] **Hậu kỳ & Xuất file:**
-  - Xuất định dạng: `.mp4`.
-  - Dung lượng: **< 100MB** (Nếu nặng hơn, dùng Handbrake hoặc converter nén lại).
-  - Tên file bắt buộc: `Video.mp4`.
-  - Giao lại cho Khánh trước **16:00** để push lên repo.
+* **Phân cảnh 1: The Possibility (0:00 - 0:30)**
+  > *"Xin chào Ban giám khảo! Đây là CarePassport — nền tảng bệnh án điện tử đa viện nơi bệnh nhân nắm quyền kiểm soát dữ liệu y tế tối thượng, được xây dựng trên nền tảng TideCloak Emergent Authority."*  
+  *(Màn hình: Hiển thị giao diện tổng quan CarePassport, chỉ vào huy hiệu TideCloak đang phát sáng).*
+
+* **Phân cảnh 2: The Constraint (0:30 - 0:50)**
+  > *"Ngày nay, các bệnh viện không dám liên thông hồ sơ và người bệnh không dám khai báo các tiền sử nhạy cảm như tâm thần hay di truyền. Lý do là trong hệ thống truyền thống, người quản trị IT luôn nắm giữ Master Key, có thể xem trộm hoặc bán dữ liệu bất cứ lúc nào."*
+
+* **Phân cảnh 3: The Prototype & TideCloak Role (0:50 - 1:40) — ĐOẠN ĂN ĐIỂM NHẤT**
+  > *(Thao tác 1)*: *"Với vai trò Bệnh nhân Sarah Nguyen, tôi chỉ cho phép Bác sĩ xem Dị ứng và Đơn thuốc, còn hồ sơ Tâm thần tôi khóa lại."*  
+  > *(Thao tác 2)*: *"Chuyển sang vai Bác sĩ tại Bệnh viện Chợ Rẫy: Dữ liệu dị ứng được giải mã tức thì. Nhưng hồ sơ tâm thần hiển thị chuỗi mã hóa Zero-Knowledge Ciphertext."*  
+  > *(Thao tác 3 - QUAN TRỌNG)*: *"Điều gì xảy ra nếu một Admin IT bệnh viện lạm quyền? Chúng tôi chuyển sang vai Rogue Admin và bấm 'Force DB Dump'. Ngay lập tức, TideCloak CHẶN ĐỨNG hành động này với cảnh báo đỏ rực: Unilateral Override Blocked! Trong CarePassport, KHÔNG AI CÓ MASTER KEY để tự ý ghi đè."*  
+  > *(Thao tác 4)*: *"Khi cấp cứu khẩn cấp, tính năng Dual-Consensus đòi hỏi Bác sĩ và Hội đồng Y đức cùng ký duyệt thì chìa khóa mới tự động phát sinh."*
+
+* **Phân cảnh 4: What Changes (1:40 - 2:00)**
+  > *"Nhờ loại bỏ nút thắt niềm tin, bệnh nhân có thể an tâm đến bất kỳ bệnh viện nào mà không sợ lộ đời tư, còn bác sĩ cấp cứu có được thông tin dị ứng cứu mạng trong tích tắc. CarePassport đã biến việc liên thông y tế zero-trust thành hiện thực."*
 
 ---
 
-### 3. Phạm Chấn Khoa (AI / Machine Learning Lead - Trọng tâm Challenge 1)
-* [ ] **Mở Notebook Challenge 1 trên Kaggle:**
-  - Import file `RMIT_SGS_ComGa_C1.ipynb` lên Kaggle Notebook.
-  - Bật môi trường Accelerator: **GPU T4 x 2**.
-  - Kiểm tra kết nối dataset `rmit-hackathon-2026`.
-* [ ] **Chạy Fine-tuning Model `xlm-roberta-large`:**
-  - Chạy toàn bộ pipeline PyTorch đã tối ưu (Batch size = 4, Gradient Accumulation = 4, Class-weighted Loss, Gradient Checkpointing).
-  - Theo dõi quá trình train 3 epochs, ghi nhận Macro-F1 trên tập validation.
-* [ ] **Tạo và Nộp Submission:**
-  - Kiểm tra file `submission.csv` đầu ra (đủ 6000 dòng test, 2 cột `id`, `label`).
-  - Nộp file lên bảng xếp hạng Kaggle để ghi nhận điểm số chính thức.
-  - Báo cáo kết quả Macro-F1 lại cho team trước **16:30**.
-
----
-
-### 4. Cái Hoàng Bảo Kin (QA / Product & Documentation Lead)
-* [ ] **Kiểm thử Web Prototype CarePassport:**
-  - Chạy thử app trên trình duyệt cá nhân (`npm run dev`).
-  - Test đầy đủ các kịch bản:
-    - Bật/tắt các công tắc dữ liệu.
-    - Bấm nút "Emergency Lockdown" xem có khóa sạch toàn bộ không.
-    - Bấm các nút tấn công của Rogue Admin xem có ra thông báo chặn màu đỏ không.
-    - Kiểm tra bảng Immutable Audit Trail bên phải xem có ghi log và chữ ký mã hóa không.
-* [ ] **Rà soát tài liệu & Tiêu chí chấm điểm:**
-  - Soát lại file `README.md` trong repo: Đảm bảo độ dài dưới 300 từ (hiện đang ~270 từ rất chuẩn), không bị lỗi cú pháp Markdown.
-  - Chuẩn bị sẵn thông tin form nộp bài Challenge 2:
-    - Link Form: `https://forms.gle/HRHYjnqB86j1LFS97`
-    - Tên nhóm: `RMIT_SGS_ComGa_C2`
-    - Link Public GitHub: `https://github.com/.../RMIT_SGS_ComGa_C2`
-* [ ] **Hỗ trợ Hiếu:** Kiểm tra video demo sau khi xuất file (âm thanh rõ ràng, thời lượng dưới 2 phút, dung lượng dưới 100MB).
-
----
-
-## ⏰ DÒNG THỜI GIAN HÀNH ĐỘNG (TIMELINE ĐẾN DEADLINE 18:00)
-
-```
-[14:00 - 15:30] 🚀 TÁC CHIẾN TỰ DO & SONG SONG
-│  ├─ Khoa: Chạy fine-tune model trên Kaggle GPU.
-│  ├─ Hiếu: Quay màn hình và lồng tiếng Video Demo 2 phút.
-│  ├─ Kin: Test app, kiểm tra checklist & chuẩn bị form nộp.
-│  └─ Khánh: Giám sát, code polish & hỗ trợ thành viên.
-│
-[15:30 - 16:30] 📦 TẬP HỢP VÀ CHỐT SẢN PHẨM
-│  ├─ Hiếu nộp Video.mp4 cho Khánh.
-│  ├─ Khánh commit Video.mp4 lên root repo GitHub & kiểm tra link repo.
-│  └─ Khoa xuất file submission.csv và nộp Kaggle lần 1.
-│
-[16:30 - 17:15] 📝 NỘP BÀI CHÍNH THỨC
-│  ├─ Khánh & Kin: Điền Google Form cho Challenge 2.
-│  ├─ Khoa & Khánh: Kiểm tra leaderboard Challenge 1.
-│  └─ Chụp ảnh xác nhận đã nộp thành công cả 2 bên.
-│
-[17:15 - 18:00] 🛡️ VÙNG ĐỆM AN TOÀN (BUFFER TIME)
-   └─ Tuyệt đối KHÔNG commit thêm sau thời điểm này. Thư giãn chờ công bố kết quả!
-```
-
----
-
-## 📌 NGUYÊN TẮC PHỐI HỢP CỦA TEAM
-1. **Thông tin minh bạch:** Có bất kỳ vướng mắc gì (lỗi GPU, video bị dài, lag...) phải báo ngay lên nhóm để Khánh và team hỗ trợ liền.
-2. **Tuân thủ quy định:** Video **bắt buộc < 2 phút** và **< 100MB**; README **bắt buộc < 300 từ**; Repo **phải để Public**.
-3. **Mục tiêu tối thượng:** Nộp bài thành công cả 2 Challenge trước 17:00!
+## ⏰ MỐC THỜI GIAN CHỐT (DEADLINE HÔM NAY)
+* **14:00 - 15:30:** Khoa test clone repo; Hiếu quay video demo; Kin kiểm thử tính năng web.
+* **15:30 - 16:00:** Hiếu xuất file `Video.mp4`, gửi cho Khánh & Kin review.
+* **16:00 - 16:30:** Khánh push `Video.mp4` lên GitHub repo, cả nhóm cùng kiểm tra link.
+* **16:30 - 17:00:** Điền Google Form chính thức. Hoàn thành bài thi Challenge 2 an toàn tuyệt đối!
