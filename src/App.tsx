@@ -13,16 +13,16 @@ import type { LocalAttachment } from './lib/files';
 import type { ApprovalView, ApprovalProposal, ApprovalDraft } from '../shared/contracts';
 import { MAX_INPUT_CHARS, MAX_TURNS } from '../shared/contracts';
 
-const PRESET = 'Tóm tắt hồ sơ tín dụng và thẩm định bảo mật cho khách hàng Lê Gia Khánh, CCCD 0792 0100 2345, STK Vietcombank 0071000123456, SĐT 0912345678, email giakhanh@rmit.edu.vn. Khoản vay 2,5 tỷ đồng, tài sản bảo đảm 5,2 tỷ đồng. Người bảo lãnh: Trần Trung Hiếu (SĐT 0987654321), Thẩm định viên: Nguyễn Chấn Khoa, Người phê duyệt: Trương Bảo Kin.';
+const PRESET = 'Tóm tắt hồ sơ tín dụng và thẩm định bảo mật cho khách hàng Lê Gia Khánh, CCCD 0792 0100 2345, STK Vietcombank 0071000123456, SĐT 0912345678, email giakhanh@rmit.edu.vn. Khoản vay 2,5 tỷ đồng, tài sản bảo đảm 5,2 tỷ đồng. Người bảo lãnh: Trần Trung Hiếu (SĐT 0987654321), Thẩm định viên: Phạm Chấn Khoa, Người phê duyệt: Cái Hoàng Bảo Kin.';
 const errorText = (e: unknown) => e instanceof Error ? e.message : 'Có lỗi xảy ra. Hãy thử lại.';
 type Summary = Pick<ConversationRow, 'id' | 'revision' | 'createdAt' | 'updatedAt'>;
 interface OpenConversation { state: ConversationState; key: CryptoKey; wrapped: string; row: ConversationRow | null }
 
 const TEAM_MEMBERS = [
   { id: 'giakhanh', name: 'Lê Gia Khánh', role: 'Người gửi (Requester)', isApprover: false },
-  { id: 'baokin', name: 'Trương Bảo Kin', role: 'Phê duyệt viên (Reviewer)', isApprover: true },
+  { id: 'baokin', name: 'Cái Hoàng Bảo Kin', role: 'Phê duyệt viên (Reviewer)', isApprover: true },
   { id: 'hieu', name: 'Trần Trung Hiếu', role: 'Thành viên thẩm định', isApprover: false },
-  { id: 'khoa', name: 'Nguyễn Chấn Khoa', role: 'Kiểm soát viên', isApprover: false },
+  { id: 'khoa', name: 'Phạm Chấn Khoa', role: 'Kiểm soát viên', isApprover: false },
 ];
 
 export default function App() {
@@ -299,7 +299,7 @@ function Workspace({ config }: { config: PublicConfig }) {
       setOpened(working);
       setApproval(row);
       if (retry) { resetInput(nextDraft.prompt); setAttachment(nextDraft.attachment); }
-      setNotice('Đã gửi yêu cầu phê duyệt vào hàng đợi. Hãy chuyển sang tài khoản Trương Bảo Kin ở thanh trên để duyệt.');
+      setNotice('Đã gửi yêu cầu phê duyệt vào hàng đợi. Hãy chuyển sang tài khoản Cái Hoàng Bảo Kin ở thanh trên để duyệt.');
       await refresh(token, task.current);
     } catch (e) {
       if (epoch.current === task.current) setError(errorText(e));
@@ -518,9 +518,9 @@ function Workspace({ config }: { config: PublicConfig }) {
         <div className="active-user-badge">
           <span>Tài khoản hiện tại:</span>
           <strong>
-            {auth.identity?.username === 'baokin' ? '🛡️ Trương Bảo Kin (Phê duyệt viên)' :
+            {auth.identity?.username === 'baokin' ? '🛡️ Cái Hoàng Bảo Kin (Phê duyệt viên)' :
              auth.identity?.username === 'hieu' ? '👤 Trần Trung Hiếu' :
-             auth.identity?.username === 'khoa' ? '👤 Nguyễn Chấn Khoa' :
+             auth.identity?.username === 'khoa' ? '👤 Phạm Chấn Khoa' :
              '👤 Lê Gia Khánh (Người gửi)'}
           </strong>
           {auth.identity?.canApproveFiles && <span className="approver-pill">Quyền duyệt (file-approver)</span>}
@@ -708,7 +708,7 @@ function Workspace({ config }: { config: PublicConfig }) {
                 value={names}
                 onChange={e => setNames(e.target.value)}
                 disabled={busy}
-                placeholder="Lê Gia Khánh, Trần Trung Hiếu, Nguyễn Chấn Khoa, Trương Bảo Kin"
+                placeholder="Lê Gia Khánh, Trần Trung Hiếu, Phạm Chấn Khoa, Cái Hoàng Bảo Kin"
               />
             </label>
 

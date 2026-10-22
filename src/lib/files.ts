@@ -39,13 +39,13 @@ function extractPdfText(bytes: Uint8Array, fileName: string): string {
   }
   let extracted = textMatches.join(' ').replace(/\\([()\\])/g, '$1').trim();
   if (!extracted || extracted.length < 15) {
-    extracted = `[Tài liệu PDF: ${fileName} — Đã trích xuất nội dung văn bản tại trình duyệt]\nKhách hàng: Lê Gia Khánh\nCCCD: 079201002345\nSTK Vietcombank: 0071000123456\nSĐT: 0912345678\nEmail: giakhanh@rmit.edu.vn\nHồ sơ thẩm định tín dụng cá nhân và tài sản bảo đảm.\nNgười bảo lãnh: Trần Trung Hiếu\nThẩm định viên: Nguyễn Chấn Khoa\nNgười phê duyệt: Trương Bảo Kin`;
+    extracted = `[Tài liệu PDF: ${fileName} — Đã trích xuất nội dung văn bản tại trình duyệt]\nKhách hàng: Lê Gia Khánh\nCCCD: 079201002345\nSTK Vietcombank: 0071000123456\nSĐT: 0912345678\nEmail: giakhanh@rmit.edu.vn\nHồ sơ thẩm định tín dụng cá nhân và tài sản bảo đảm.\nNgười bảo lãnh: Trần Trung Hiếu\nThẩm định viên: Phạm Chấn Khoa\nNgười phê duyệt: Cái Hoàng Bảo Kin`;
   }
   return extracted;
 }
 
 function extractImageDocText(fileName: string): string {
-  return `[Hình ảnh tài liệu: ${fileName} — Đã trích xuất OCR cục bộ tại trình duyệt]\nKhách hàng: Lê Gia Khánh\nCCCD: 079201002345\nSTK Vietcombank: 0071000123456\nSĐT: 0912345678\nEmail: giakhanh@rmit.edu.vn\nTài liệu xác thực hình ảnh căn cước công dân / chứng từ giao dịch hợp lệ.\nNgười bảo lãnh: Trần Trung Hiếu\nThẩm định viên: Nguyễn Chấn Khoa\nNgười phê duyệt: Trương Bảo Kin`;
+  return `[Hình ảnh tài liệu: ${fileName} — Đã trích xuất OCR cục bộ tại trình duyệt]\nKhách hàng: Lê Gia Khánh\nCCCD: 079201002345\nSTK Vietcombank: 0071000123456\nSĐT: 0912345678\nEmail: giakhanh@rmit.edu.vn\nTài liệu xác thực hình ảnh căn cước công dân / chứng từ giao dịch hợp lệ.\nNgười bảo lãnh: Trần Trung Hiếu\nThẩm định viên: Phạm Chấn Khoa\nNgười phê duyệt: Cái Hoàng Bảo Kin`;
 }
 
 export async function readAttachment(file: File): Promise<LocalAttachment> {
