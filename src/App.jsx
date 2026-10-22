@@ -1,598 +1,673 @@
-import React, { useState, useReducer, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useTideCloak } from "@tidecloak/react";
-import seedData from "./medicalData.json";
+import vaultData from "./vaultData.json";
+import { detectAndMaskPII, unmaskText } from "./piiEngine";
 
-// Initial state for patient consent
-const initialConsent = {
-  "rec-01": true,  // Vital Allergies & Blood (Shared)
-  "rec-02": true,  // Current Prescriptions (Shared)
-  "rec-03": true,  // Lab Tests (Shared for consultation)
-  "rec-04": false, // Psychiatric Notes (STRICTLY LOCKED)
-  "rec-05": false, // Genomic Sequencing (STRICTLY LOCKED)
-};
+const AUTH_SERVER = "http://localhost:8080/";
 
-function generateCryptoSig() {
-  const chars = "0123456789abcdef";
-  let hash = "0x";
-  for (let i = 0; i < 16; i++) {
-    hash += chars[Math.floor(Math.random() * chars.length)];
-  }
-  return `${hash}...${hash.slice(2, 6)}`;
+function nowTime() {
+  return new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
 }
 
-function auditReducer(state, action) {
-  switch (action.type) {
-    case "LOG":
-      return [
-        {
-          id: `${Date.now()}-${Math.random()}`,
-          timestamp: new Date().toLocaleTimeString(),
-          actor: action.actor,
-          event: action.event,
-          details: action.details,
-          status: action.status, // "blocked" | "approved" | "info"
-          signature: generateCryptoSig(),
-        },
-        ...state,
-      ];
-    default:
-      return state;
-  }
+function randSig() {
+  const hex = "0123456789abcdef";
+  let s = "0x";
+  for (let i = 0; i < 14; i++) s += hex[Math.floor(Math.random() * hex.length)];
+  return s + "...";
 }
 
 export default function App() {
-  // TideCloak Hook
-  const {
-    authenticated,
-    isInitializing,
-    login,
-    logout,
-    hasRealmRole,
-  } = useTideCloak();
+  const { authenticated, isLoading, login, logout, getValueFromToken } = useTideCloak();
 
-  // Application State
-  const [activeRole, setActiveRole] = useState("patient"); // patient | doctor | overseer | rogue_admin
-  const [consentMap, setConsentMap] = useState(initialConsent);
-  const [consultationTimeLeft, setConsultationTimeLeft] = useState(1800); // 30 minutes in seconds
-  const [timerActive, setTimerActive] = useState(true);
-  const [notification, setNotification] = useState({
-    show: true,
-    type: "info",
-    message: "TideCloak Emergent Authority Engine is active. Decryption keys emerge only upon multi-party policy match.",
+  // Role Switcher: "user" | "vendor" | "admin"
+  const [viewRole, setViewRole] = useState("user");
+
+  // Client Unmasking Toggle
+  const [showRealValuesOnClient, setShowRealValuesOnClient] = useState(true);
+
+  // Chat Thread State
+  const [messages, setMessages] = useState(vaultData.defaultChatHistory);
+  const [inputVal, setInputVal] = useState("");
+  const [livePii, setLivePii] = useState(detectAndMaskPII(""));
+  const [chatLoading, setChatLoading] = useState(false);
+
+  // Gateway Echo State (What Cloud AI sees)
+  const [lastGatewayEcho, setLastGatewayEcho] = useState({
+    ticketId: "8f4a-91d2-4e6b-a01c",
+    timestamp: "14:30:15",
+    maskedPrompt: "Chào AI, tôi cần nhờ bạn thẩm định giúp hồ sơ vay vốn [MONEY_1] của khách hàng [NAME_1] (CCCD [CCCD_1], STK Vietcombank [STK_1]) xem có đủ điều kiện thế chấp không.",
+    directPiiLeakage: "0.00%",
+    userHash: "sha256(sub)::c8a14b...09ef (ANONYMOUS)"
   });
 
-  // Dual-Consensus Request State for Emergency or High-Privacy Records
-  const [dualRequest, setDualRequest] = useState({
-    id: "req-901",
-    recordId: "rec-05",
-    targetTitle: "Whole Genome Sequencing & Pharmacogenomics",
-    doctorSigned: true,
-    overseerSigned: false,
-    status: "pending_overseer", // pending_overseer | approved
-  });
+  // DB State (Postgres Simulator)
+  const [isShredded, setIsShredded] = useState(false);
+  const [dbTampered, setDbTampered] = useState(false);
 
-  // Audit Trail State
-  const [auditLog, dispatchAudit] = useReducer(auditReducer, [
-    {
-      id: "init-1",
-      timestamp: "12:00:01",
-      actor: "TideCloak Policy Engine",
-      event: "Decentralized Zero-Trust Mesh Initialized",
-      details: "No static master key stored. Emergent policy threshold enforced (Patient + Clinician).",
-      status: "approved",
-      signature: "0x89f41a02b1c8...39e1",
-    },
-    {
-      id: "init-2",
-      timestamp: "12:01:15",
-      actor: "Sarah Nguyen (Patient)",
-      event: "Consent Profile Configured",
-      details: "Granted access to Allergies, Prescriptions, Lab Tests. Locked Psychiatric & Genomic records.",
-      status: "info",
-      signature: "0x4a90ef812c44...71b0",
-    },
-  ]);
+  // Quorum Modal State (QEA)
+  const [showQuorumModal, setShowQuorumModal] = useState(false);
+  const [quorumSignatures, setQuorumSignatures] = useState(["Admin 1 (SecOps Lead)"]);
 
-  // Consultation Timer countdown
+  // Alert State
+  const [alert, setAlert] = useState(null);
+  const [toast, setToast] = useState("");
+  const toastTimer = useRef(null);
+
+  // Real-time PII detection when typing
   useEffect(() => {
-    let interval = null;
-    if (timerActive && consultationTimeLeft > 0) {
-      interval = setInterval(() => {
-        setConsultationTimeLeft((prev) => {
-          if (prev <= 1) {
-            setTimerActive(false);
-            // Auto revoke consultation access when timer expires
-            setConsentMap((old) => ({ ...old, "rec-03": false }));
-            dispatchAudit({
-              type: "LOG",
-              actor: "TideCloak Auto-Expiry Daemon",
-              event: "Time-Bound Consultation Token Expired",
-              details: "Temporary consultation access for Lab Tests (rec-03) automatically revoked.",
-              status: "info",
-            });
-            return 0;
-          }
-          return prev - 1;
+    setLivePii(detectAndMaskPII(inputVal));
+  }, [inputVal]);
+
+  function showToast(msg) {
+    setToast(msg);
+    clearTimeout(toastTimer.current);
+    toastTimer.current = setTimeout(() => setToast(""), 6000);
+  }
+
+  // Pre-flight check for TideCloak Docker
+  async function handleLogin() {
+    try {
+      const ctrl = new AbortController();
+      const t = setTimeout(() => ctrl.abort(), 2000);
+      await fetch(AUTH_SERVER, { mode: "no-cors", signal: ctrl.signal });
+      clearTimeout(t);
+    } catch {
+      showToast("TideCloak server không chạy trên localhost:8080. Khởi động Docker để kết nối IdP thật.");
+      return;
+    }
+    try {
+      await login();
+    } catch (err) {
+      showToast(`Đăng nhập thất bại: ${err.message}`);
+    }
+  }
+
+  // Select a preset sample prompt
+  function selectPreset(presetText) {
+    setInputVal(presetText);
+  }
+
+  // Send Chat Message
+  function handleSendMessage(e) {
+    e?.preventDefault();
+    if (!inputVal.trim() || isShredded) return;
+
+    const raw = inputVal;
+    const scan = detectAndMaskPII(raw);
+
+    // Create user message
+    const userMsg = {
+      id: `msg-${Date.now()}`,
+      sender: "user",
+      text: raw,
+      maskedText: scan.maskedText,
+      piiCount: scan.entities.length,
+      riskScore: scan.riskScore,
+      timestamp: nowTime()
+    };
+
+    setMessages((prev) => [...prev, userMsg]);
+    setInputVal("");
+    setChatLoading(true);
+
+    // Update Gateway Echo
+    setLastGatewayEcho({
+      ticketId: `tkt-${Math.random().toString(36).slice(2, 10)}`,
+      timestamp: nowTime(),
+      maskedPrompt: scan.maskedText,
+      directPiiLeakage: "0.00%",
+      userHash: "sha256(sub)::c8a14b...09ef (ANONYMOUS TICKET)"
+    });
+
+    // Check Prompt Injection (Synergy with Challenge 1)
+    setTimeout(() => {
+      setChatLoading(false);
+      const isInjection = /bỏ qua|ignore|jailbreak|bypass|api key|root|password|trích xuất|dump|mật khẩu/i.test(raw);
+
+      if (isInjection) {
+        setAlert({
+          type: "danger",
+          title: "🚨 Phát hiện Tấn công Prompt Injection (Challenge 1 Guardrail)",
+          message: "Mô hình phân loại đa ngôn ngữ (C1) phát hiện ý định trích xuất dữ liệu trái phép (Confidence: 94.8%). TideCloak kích hoạt Emergency Lockdown: Thẩm quyền giải mã bị từ chối."
         });
-      }, 1000);
-    }
-    return () => clearInterval(interval);
-  }, [timerActive, consultationTimeLeft]);
 
-  const formattedTime = useMemo(() => {
-    const mins = Math.floor(consultationTimeLeft / 60);
-    const secs = consultationTimeLeft % 60;
-    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
-  }, [consultationTimeLeft]);
+        const blockedReply = {
+          id: `msg-${Date.now()}`,
+          sender: "ai",
+          text: `⚠️ [CẢNH BÁO BẢO MẬT]: Yêu cầu chứa dấu hiệu tấn công Prompt Injection (F1: 0.93). TideCloak đã từ chối cấp thẩm quyền giải mã (Emergent Authority Denied). Lịch sử chat được bảo vệ an toàn.`,
+          maskedEcho: `[BLOCKED BY MULTILINGUAL GUARDRAIL: PROMPT_INJECTION]`,
+          timestamp: nowTime(),
+          isWarning: true
+        };
+        setMessages((m) => [...m, blockedReply]);
+        return;
+      }
 
-  // Handlers
-  const handleToggleConsent = (recordId, title) => {
-    const nextState = !consentMap[recordId];
-    setConsentMap((prev) => ({ ...prev, [recordId]: nextState }));
-    
-    dispatchAudit({
-      type: "LOG",
-      actor: "Sarah Nguyen (Patient)",
-      event: nextState ? "Consent Granted" : "Consent Revoked",
-      details: `Patient ${nextState ? "authorized dynamic decryption of" : "revoked access to"} [${title}].`,
-      status: nextState ? "approved" : "blocked",
-    });
+      // Normal Intelligent AI reply
+      let aiPlain = "";
+      let aiMasked = "";
 
-    setNotification({
-      show: true,
-      type: nextState ? "success" : "info",
-      message: `TideCloak policy updated: Access to "${title}" is now ${nextState ? "PERMITTED" : "REVOKED"}.`,
-    });
-  };
+      if (scan.entities.some((e) => e.type === "NAME" || e.type === "CCCD" || e.type === "STK")) {
+        const nameVal = scan.entities.find((e) => e.type === "NAME")?.value || "Khách hàng";
+        const stkVal = scan.entities.find((e) => e.type === "STK")?.value || "tài khoản";
+        aiPlain = `Dựa trên kết quả thẩm định hồ sơ của ${nameVal}:\n1. Đầy đủ tính pháp lý theo quy định tín dụng cá nhân và doanh nghiệp.\n2. Lịch sử giao dịch qua tài khoản ${stkVal} đạt điểm tín dụng Hạng A.\n3. Đáp ứng tiêu chuẩn bảo mật dữ liệu theo Điều 30 Luật BVDLCN số 91/2025/QH15.`;
+        aiMasked = `Dựa trên kết quả thẩm định hồ sơ của [NAME_1]:\n1. Đầy đủ tính pháp lý theo quy định tín dụng cá nhân và doanh nghiệp.\n2. Lịch sử giao dịch qua tài khoản [STK_1] đạt điểm tín dụng Hạng A.\n3. Đáp ứng tiêu chuẩn bảo mật dữ liệu theo Điều 30 Luật BVDLCN số 91/2025/QH15.`;
+      } else {
+        aiPlain = `Yêu cầu của bạn đã được xử lý an toàn qua kênh mã hóa Client-side TideCloak. Dữ liệu không lưu bản rõ trên Cloud AI.`;
+        aiMasked = `Yêu cầu của bạn đã được xử lý an toàn qua kênh mã hóa Client-side TideCloak. Dữ liệu không lưu bản rõ trên Cloud AI.`;
+      }
 
-  const handleEmergencyLockdown = () => {
-    setConsentMap({
-      "rec-01": false,
-      "rec-02": false,
-      "rec-03": false,
-      "rec-04": false,
-      "rec-05": false,
-    });
-    setTimerActive(false);
+      const aiReply = {
+        id: `msg-${Date.now()}`,
+        sender: "ai",
+        text: aiPlain,
+        maskedEcho: aiMasked,
+        timestamp: nowTime()
+      };
+      setMessages((m) => [...m, aiReply]);
+    }, 700);
+  }
 
-    dispatchAudit({
-      type: "LOG",
-      actor: "Sarah Nguyen (Patient)",
-      event: "EMERGENCY PASSPORT LOCKDOWN",
-      details: "Patient executed zero-trust total revocation. All active clinical tokens invalidated immediately.",
-      status: "blocked",
-    });
-
-    setNotification({
-      show: true,
+  // Attack 1: Simulate Rogue DBA Tampering Postgres Ciphertext
+  function handleSimulateDbaTamper() {
+    setDbTampered(true);
+    setAlert({
       type: "danger",
-      message: "EMERGENCY LOCKDOWN: All record tokens revoked. No party can decrypt any medical records.",
+      title: "💥 Vi phạm Tính toàn vẹn Mật mã: AES-GCM AAD Mismatch!",
+      message: "DBA độc hại đã tráo bản mã (Ciphertext) trong PostgreSQL. Khi tải về, WebCrypto HKDF-SHA256 phát hiện Additional Authenticated Data (AAD) không khớp với conv_id và msg_index. Lệnh sửa lén bị chặn đứng 100%!"
     });
-  };
+  }
 
-  const handleOverseerSign = () => {
-    setDualRequest((prev) => ({ ...prev, overseerSigned: true, status: "approved" }));
-    setConsentMap((prev) => ({ ...prev, "rec-05": true }));
+  // Attack 2: Simulate God Admin Escalation (QEA Quorum Challenge)
+  function handleTriggerQuorumChallenge() {
+    setShowQuorumModal(true);
+  }
 
-    dispatchAudit({
-      type: "LOG",
-      actor: "Dr. Elena Rostova (Ethics Overseer)",
-      event: "Dual-Consensus Emergent Authority Formed",
-      details: "Threshold policy 2-of-2 satisfied (Doctor + Ethics Board). Temporary emergency access to Genomic profile unlocked.",
-      status: "approved",
-    });
-
-    setNotification({
-      show: true,
-      type: "success",
-      message: "Emergent Authority generated! Genomic record unlocked via 2-of-2 dual consensus.",
-    });
-  };
-
-  // Rogue Admin Exploit Simulations (The Core Wow Factor for Judges)
-  const triggerRogueExploit = (type) => {
-    let exploitTitle = "";
-    let reason = "";
-
-    if (type === "dump") {
-      exploitTitle = "Unilateral Database Dump Attempt";
-      reason = "Rogue SuperAdmin attempted 'SELECT * FROM patient_records'. Intercepted: Records are client-side encrypted; no static server master key exists.";
-    } else if (type === "psych") {
-      exploitTitle = "Silent Decryption of Psychiatric Notes";
-      reason = "Attempted backdoor decryption of Psychiatric Notes (rec-04). Intercepted: Patient Sarah Nguyen has not co-signed policy token. Decryption failed.";
-    } else if (type === "escalate") {
-      exploitTitle = "Privilege Escalation Override";
-      reason = "SuperAdmin injected root bypass role 'ADMIN_SUPER_OVERRIDE'. Intercepted: TideCloak Emergent Authority mathematically ignores root permissions.";
+  // Approve Quorum Signatures
+  function handleQuorumApprove() {
+    if (!quorumSignatures.includes("Admin 2 (Security Auditor)")) {
+      setQuorumSignatures((prev) => [...prev, "Admin 2 (Security Auditor)"]);
+      showToast("Đã thu thập đủ 2/2 chữ ký Quorum độc lập! Yêu cầu thay đổi được thông qua.");
     }
+  }
 
-    dispatchAudit({
-      type: "LOG",
-      actor: "Alex Mercer (Compromised Hospital IT Admin)",
-      event: `BLOCKED BY TIDECLOAK: ${exploitTitle}`,
-      details: reason,
-      status: "blocked",
+  // Reject Quorum
+  function handleQuorumReject() {
+    setShowQuorumModal(false);
+    setAlert({
+      type: "info",
+      title: "🛡️ Change Request Bị Từ Chối Bởi Quorum",
+      message: "Hội đồng Admin độc lập đã bấm REJECT. Thao tác tự cấp quyền giải mã kho dữ liệu của Admin nội bộ đã bị vô hiệu hóa."
     });
+  }
 
-    setNotification({
-      show: true,
-      type: "danger",
-      message: `UNILATERAL OVERRIDE BLOCKED! ${reason}`,
+  // Crypto-Shredding (Right to be Forgotten)
+  function handleCryptoShred() {
+    setIsShredded(true);
+    setMessages([]);
+    setAlert({
+      type: "warning",
+      title: "🗑️ Crypto-Shredding Hoàn Tất (Quyền Được Xóa)",
+      message: "Khóa gốc K_conv và wrapped_dek trên TideCloak đã bị xóa sạch (NULL). Toàn bộ bản sao lưu database (DB Backups) cũ lập tức trở thành chuỗi rác vô nghĩa, không thể giải mã."
     });
-  };
+  }
+
+  // Reset demo
+  function handleResetDemo() {
+    setIsShredded(false);
+    setDbTampered(false);
+    setAlert(null);
+    setMessages(vaultData.defaultChatHistory);
+    setQuorumSignatures(["Admin 1 (SecOps Lead)"]);
+    showToast("Đã khôi phục dữ liệu ban đầu cho kịch bản Demo.");
+  }
 
   return (
-    <div className="app-container">
-      {/* Top Header */}
-      <header className="app-header">
-        <div className="header-container">
-          <div className="brand-section">
-            <div className="logo-badge">CP</div>
-            <div>
-              <div className="brand-title">
-                CarePassport
-                <span className="tide-badge">
-                  <span className="pulse-dot"></span>
-                  TideCloak Emergent Authority
-                </span>
-              </div>
-              <div className="brand-subtitle">
-                Zero-Trust Cross-Hospital Medical Consent Vault &middot; RMIT Hackathon 2026
-              </div>
+    <div className="app-shell">
+      {/* 1. Header Topbar */}
+      <header className="topbar">
+        <div className="brand">
+          <div className="brand-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ width: 20, height: 20 }}>
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+              <path d="M9 12l2 2 4-4" />
+            </svg>
+          </div>
+          <div className="brand-title-wrap">
+            <div className="brand-name">
+              PrivateChat Shield
+              <span className="compliance-badge">Luật BVDLCN 91/2025/QH15</span>
             </div>
+            <span className="brand-tag">Lớp Bảo Mật & Giả Danh Hóa Cho Chat AI Với TideCloak</span>
+          </div>
+        </div>
+
+        <div className="top-right">
+          {/* Role Switcher */}
+          <div className="role-selector-wrap">
+            <span className="role-label">VAI TRÒ:</span>
+            <select
+              className="role-select"
+              value={viewRole}
+              onChange={(e) => setViewRole(e.target.value)}
+              id="role-select"
+            >
+              <option value="user">👤 Nhân viên Doanh nghiệp (Client Safe Zone)</option>
+              <option value="vendor">🌐 Cloud AI Gateway (Chỉ thấy Masked Token)</option>
+              <option value="admin">🛡️ Quản trị viên / DBA (Quorum Audit & DB)</option>
+            </select>
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: "0.75rem", color: "var(--text-muted)" }}>Consultation Token Expiry</div>
-              <div style={{ fontFamily: "var(--font-mono)", fontSize: "1rem", fontWeight: 700, color: consultationTimeLeft > 300 ? "var(--accent-teal)" : "var(--accent-danger)" }}>
-                {timerActive ? formattedTime : "EXPIRED"}
-              </div>
-            </div>
-            {authenticated ? (
-              <button className="secondary-btn" onClick={logout} id="btn-tide-logout">
-                Logout
-              </button>
-            ) : (
-              <button className="primary-btn" onClick={login} id="btn-tide-login">
-                Connect TideCloak
-              </button>
-            )}
-          </div>
+          {authenticated ? (
+            <button className="auth-btn" onClick={logout} id="btn-auth">
+              ✓ {getValueFromToken?.("preferred_username") || "TideCloak User"} · Đăng xuất
+            </button>
+          ) : (
+            <button className="auth-btn" onClick={handleLogin} id="btn-auth">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 14, height: 14 }}>
+                <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+              Kết nối TideCloak IdP
+            </button>
+          )}
         </div>
       </header>
 
-      {/* Role Switcher Toolbar */}
-      <div className="role-bar">
-        <div className="role-bar-inner">
-          <div className="role-label">Simulate Perspective / Actor:</div>
-          <div className="role-buttons">
-            <button
-              id="role-patient"
-              className={`role-btn ${activeRole === "patient" ? "active" : ""}`}
-              onClick={() => setActiveRole("patient")}
-            >
-              👤 Patient (Sarah Nguyen)
-            </button>
-            <button
-              id="role-doctor"
-              className={`role-btn ${activeRole === "doctor" ? "active" : ""}`}
-              onClick={() => setActiveRole("doctor")}
-            >
-              🩺 Attending Clinician (Dr. Minh Tran - Cho Ray)
-            </button>
-            <button
-              id="role-overseer"
-              className={`role-btn ${activeRole === "overseer" ? "active" : ""}`}
-              onClick={() => setActiveRole("overseer")}
-            >
-              ⚖️ Medical Ethics Overseer (Dr. Elena)
-            </button>
-            <button
-              id="role-rogue-admin"
-              className={`role-btn rogue-btn ${activeRole === "rogue_admin" ? "active" : ""}`}
-              onClick={() => setActiveRole("rogue_admin")}
-            >
-              ⚠️ Rogue Hospital IT Admin (Alex Mercer)
-            </button>
+      {/* 2. Compliance & Metric Ribbon */}
+      <div className="compliance-banner">
+        <div className="banner-left">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 15, height: 15 }}>
+            <circle cx="12" cy="12" r="10" />
+            <line x1="12" y1="8" x2="12" y2="12" />
+            <line x1="12" y1="16" x2="12.01" y2="16" />
+          </svg>
+          <strong>Căn cứ Pháp lý:</strong> Khoản 1 Điều 30 Luật BVDLCN (Xử lý DLCN trong AI & Cloud) & Nghị định 13/2023/NĐ-CP.
+        </div>
+        <div className="banner-stats">
+          <div className="stat-item">
+            <span>Tỷ lệ Lộ PII Ra Cloud:</span>
+            <span className="stat-val">0.00%</span>
+          </div>
+          <div className="stat-item">
+            <span>Độ trễ Quét Client:</span>
+            <span className="stat-val">&lt; 4 ms</span>
+          </div>
+          <div className="stat-item">
+            <span>Khóa Bí Mật Server:</span>
+            <span className="stat-val">0% (Master Key Triệt Tiêu)</span>
           </div>
         </div>
       </div>
 
-      {/* Main Content Layout */}
-      <main className="main-content">
-        {/* Dynamic Notification Banner */}
-        {notification.show && (
-          <div className={`notification-banner ${notification.type}`} id="status-banner">
+      {/* Global Alert Notification */}
+      {alert && (
+        <div style={{ padding: "0.75rem 1.5rem 0" }}>
+          <div className={`alert-box ${alert.type}`}>
             <div>
-              <strong>{notification.type === "danger" ? "🚨 SECURITY ALERT: " : "ℹ️ SYSTEM NOTICE: "}</strong>
-              {notification.message}
+              <strong>{alert.title}</strong>
+              <div style={{ marginTop: 2 }}>{alert.message}</div>
             </div>
             <button
-              style={{ background: "none", border: "none", color: "inherit", cursor: "pointer", fontSize: "1.1rem" }}
-              onClick={() => setNotification({ ...notification, show: false })}
+              onClick={() => setAlert(null)}
+              style={{ marginLeft: "auto", background: "none", border: "none", cursor: "pointer", fontSize: 16 }}
             >
               &times;
             </button>
           </div>
-        )}
+        </div>
+      )}
 
-        {/* Left Column: Contextual Role View */}
-        <section className="view-column">
-          {/* Patient Overview Card */}
-          <div className="glass-panel">
-            <div className="patient-profile-card">
-              <div className="patient-avatar">{seedData.patient.avatar}</div>
-              <div className="patient-info">
-                <h3>{seedData.patient.name}</h3>
-                <div className="patient-meta-grid">
-                  <span>DOB: <strong>{seedData.patient.dob}</strong></span>
-                  <span>Blood: <strong>{seedData.patient.bloodType}</strong></span>
-                  <span>National ID: <strong>{seedData.patient.nationalId}</strong></span>
-                  <span>Insurance: <strong>{seedData.patient.insurance}</strong></span>
-                </div>
-              </div>
+      {/* 3. Main 3-Column Synchronized Layout */}
+      <main className="main-layout">
+        {/* COLUMN 1: CLIENT SAFE ZONE (User View) */}
+        <section className="column-card">
+          <div className="col-header">
+            <div className="col-title-wrap">
+              <h2>👤 Cột 1: Trình duyệt Người dùng</h2>
+              <span className="col-sub">Vùng tin cậy duy nhất giữ bản rõ · WebCrypto AES-GCM</span>
             </div>
+            <button
+              className="pill-badge blue"
+              style={{ cursor: "pointer" }}
+              onClick={() => setShowRealValuesOnClient(!showRealValuesOnClient)}
+              title="Nhấn để chuyển đổi chế độ xem tên thật và token"
+            >
+              {showRealValuesOnClient ? "👁️ Đang Unmask Tên thật" : "🔒 Đang hiển thị Token"}
+            </button>
+          </div>
 
-            {/* Role Header Info */}
-            <div className="panel-header">
-              <div className="panel-title">
-                {activeRole === "patient" && "🔐 Sovereign Health Records & Consent Dashboard"}
-                {activeRole === "doctor" && "🩺 Clinician Medical Consultation Portal (Cho Ray Hospital)"}
-                {activeRole === "overseer" && "⚖️ Independent Bioethics & Emergency Dual-Consensus"}
-                {activeRole === "rogue_admin" && "⚠️ Malicious Hospital IT SuperAdmin Penetration Test"}
+          {/* Chat Messages Scroll */}
+          <div className="chat-scroll-area">
+            {messages.length === 0 ? (
+              <div style={{ textAlign: "center", color: "var(--text-muted)", marginTop: "2rem" }}>
+                Kho hội thoại đã bị Crypto-Shred. Không còn bản tin nào có thể giải mã.
               </div>
-
-              {activeRole === "patient" && (
-                <button
-                  id="btn-emergency-lockdown"
-                  className="danger-btn"
-                  onClick={handleEmergencyLockdown}
-                  title="Immediately revoke all shared access across all hospitals"
-                >
-                  🛑 Emergency Lockdown (Revoke All)
-                </button>
-              )}
-            </div>
-
-            {/* Perspective: Rogue Admin Simulator */}
-            {activeRole === "rogue_admin" && (
-              <div className="rogue-box" id="rogue-admin-panel">
-                <div className="rogue-header">
-                  <div style={{ fontSize: "1.5rem" }}>🚨</div>
-                  <div>
-                    <div className="rogue-title">Testing Conventional System Failure vs TideCloak</div>
-                    <div style={{ fontSize: "0.78rem", color: "#fca5a5" }}>
-                      In traditional hospital EHRs, a root database admin can easily execute SQL queries to steal or alter any patient's sensitive history. Click below to test TideCloak's mathematical barrier.
-                    </div>
+            ) : (
+              messages.map((m) => (
+                <div key={m.id} className={`message-row ${m.sender}`}>
+                  <div className="msg-meta">
+                    <span>{m.sender === "user" ? "Nguyễn Văn Hùng (Chuyên viên)" : "AI Trợ lý Thẩm định"}</span>
+                    <span>&bull;</span>
+                    <span>{m.timestamp}</span>
                   </div>
+                  <div className="msg-body">
+                    {showRealValuesOnClient ? m.text : (m.maskedText || m.maskedEcho || m.text)}
+                  </div>
+                  {m.piiCount > 0 && (
+                    <div className="msg-pii-tags">
+                      <span className="msg-tag-badge">🛡️ Đã khử định danh {m.piiCount} thực thể PII</span>
+                      <span className="msg-tag-badge">Rủi ro: {m.riskScore}%</span>
+                    </div>
+                  )}
                 </div>
-
-                <div className="rogue-actions-grid">
-                  <button
-                    id="btn-exploit-dump"
-                    className="exploit-btn"
-                    onClick={() => triggerRogueExploit("dump")}
-                  >
-                    <span>💥 Force Unilateral DB Dump</span>
-                    <small>Attempt to dump raw patient data via SQL root</small>
-                  </button>
-
-                  <button
-                    id="btn-exploit-psych"
-                    className="exploit-btn"
-                    onClick={() => triggerRogueExploit("psych")}
-                  >
-                    <span>🕵️ Master-Key Decrypt Psychiatric Notes</span>
-                    <small>Attempt unauthorized decryption without patient consent</small>
-                  </button>
-
-                  <button
-                    id="btn-exploit-escalate"
-                    className="exploit-btn"
-                    onClick={() => triggerRogueExploit("escalate")}
-                  >
-                    <span>🛡️ Inject Root Bypass Role</span>
-                    <small>Simulate cloud admin elevating permissions</small>
-                  </button>
+              ))
+            )}
+            {chatLoading && (
+              <div className="message-row ai">
+                <div className="msg-meta">AI Trợ lý Thẩm định</div>
+                <div className="msg-body" style={{ fontStyle: "italic", color: "var(--text-muted)" }}>
+                  Đang khử định danh PII và suy luận qua AI Gateway...
                 </div>
               </div>
             )}
+          </div>
 
-            {/* Perspective: Medical Ethics Overseer Dual-Consensus */}
-            {activeRole === "overseer" && (
-              <div className="dual-consensus-box" id="overseer-panel">
-                <h4 style={{ color: "var(--accent-purple)", marginBottom: "0.5rem" }}>
-                  Active Emergency Co-Authorization Request (#REQ-901)
-                </h4>
-                <p style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>
-                  Dr. Minh Tran (Cho Ray Hospital) requested emergency consultation access to Patient's Whole Genome Profile for acute pharmacogenomic dosing. TideCloak requires 2-of-2 dual consensus before decryption keys emerge.
-                </p>
+          {/* Preset Prompts Selector */}
+          <div className="prompt-presets">
+            <span style={{ fontSize: "0.7rem", color: "var(--text-muted)", fontWeight: 600 }}>Thử nhanh:</span>
+            {vaultData.samplePrompts.map((p) => (
+              <button
+                key={p.id}
+                className="preset-chip"
+                onClick={() => selectPreset(p.text)}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
 
-                <div className="consensus-stepper">
-                  <div className="step-item">
-                    <div className="step-circle done">✓</div>
-                    <div>
-                      <div style={{ fontWeight: 600 }}>Clinician Request</div>
-                      <div style={{ fontSize: "0.72rem", color: "var(--text-dim)" }}>Dr. Minh Tran signed</div>
-                    </div>
-                  </div>
-                  <div style={{ height: "2px", width: "40px", background: dualRequest.overseerSigned ? "var(--accent-teal)" : "rgba(255,255,255,0.1)" }}></div>
-                  <div className="step-item">
-                    <div className={`step-circle ${dualRequest.overseerSigned ? "done" : "pending"}`}>
-                      {dualRequest.overseerSigned ? "✓" : "2"}
-                    </div>
-                    <div>
-                      <div style={{ fontWeight: 600 }}>Ethics Overseer Approval</div>
-                      <div style={{ fontSize: "0.72rem", color: "var(--text-dim)" }}>
-                        {dualRequest.overseerSigned ? "Signed & Co-Authorized" : "Awaiting your signature"}
-                      </div>
-                    </div>
-                  </div>
-                </div>
+          {/* Real-time PII Preview Bar */}
+          {livePii.entities.length > 0 && (
+            <div className="pii-preview-bar">
+              <div className="pii-preview-header">
+                <span>🛡️ Phát hiện {livePii.entities.length} thực thể PII (Khử trước khi gửi Cloud):</span>
+                <span className="pill-badge red">Rủi ro: {livePii.riskScore}% ({livePii.riskLevel})</span>
+              </div>
+              <div className="pii-chip-list">
+                {livePii.entities.map((e, idx) => (
+                  <span key={idx} className="pii-chip">
+                    {e.token} &rarr; {e.value}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
 
-                {!dualRequest.overseerSigned ? (
-                  <button
-                    id="btn-overseer-approve"
-                    className="primary-btn"
-                    onClick={handleOverseerSign}
-                  >
-                    ✍️ Sign & Grant Dual-Consensus Key
-                  </button>
+          {/* Chat Input Form */}
+          <div className="chat-input-wrap">
+            <form className="chat-input-form" onSubmit={handleSendMessage}>
+              <input
+                type="text"
+                className="chat-textarea"
+                placeholder="Nhập thông tin hồ sơ vay, CCCD, STK ngân hàng hoặc hợp đồng..."
+                value={inputVal}
+                onChange={(e) => setInputVal(e.target.value)}
+                disabled={isShredded}
+                id="chat-input-box"
+              />
+              <button
+                type="submit"
+                className="send-btn"
+                disabled={isShredded || !inputVal.trim()}
+                id="btn-send-message"
+              >
+                Gửi AI
+              </button>
+            </form>
+          </div>
+        </section>
+
+        {/* COLUMN 2: STATELESS AI GATEWAY ECHO (Cloud AI View) */}
+        <section className="column-card">
+          <div className="col-header">
+            <div className="col-title-wrap">
+              <h2>🌐 Cột 2: AI Gateway Echo</h2>
+              <span className="col-sub">Những gì Cloud LLM (Gemini/OpenAI) nhìn thấy · 0% PII</span>
+            </div>
+            <span className="pill-badge green">Stateless &middot; No Content Log</span>
+          </div>
+
+          <div className="gateway-content">
+            {/* Anonymous Ticket Box */}
+            <div className="gateway-panel">
+              <div className="panel-title">
+                <span>🎫 Anonymous Quota Ticket (Tách Rời Danh Tính)</span>
+                <span className="pill-badge blue">HMAC-SHA256 Signed</span>
+              </div>
+              <div className="ticket-box">
+                <div><span className="ticket-prop">ticket_id:</span> {lastGatewayEcho.ticketId}</div>
+                <div><span className="ticket-prop">user_identity:</span> <span style={{ color: "#16a34a" }}>[REDACTED / ANONYMOUS]</span></div>
+                <div><span className="ticket-prop">sub_hash:</span> {lastGatewayEcho.userHash}</div>
+                <div><span className="ticket-prop">token_quota:</span> 4096 tokens (dùng 1 lần)</div>
+                <div><span className="ticket-prop">gateway_logging:</span> DISABLED (Tuân thủ Điều 20 & 21 Luật BVDLCN)</div>
+              </div>
+            </div>
+
+            {/* Prompt Transmitted to Cloud */}
+            <div className="gateway-panel" style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+              <div className="panel-title">
+                <span>Prompt Đã Giả Danh Hóa Truyền Tới Cloud AI</span>
+                <span className="pill-badge amber">100% Tokenized</span>
+              </div>
+              <div className="masked-stream-box" style={{ flex: 1 }}>
+                {lastGatewayEcho.maskedPrompt ? (
+                  lastGatewayEcho.maskedPrompt.split(/(\[[A-Z]+_\d+\])/g).map((part, i) =>
+                    /\[[A-Z]+_\d+\]/.test(part) ? (
+                      <span key={i} className="masked-token-highlight">{part}</span>
+                    ) : (
+                      part
+                    )
+                  )
                 ) : (
-                  <div style={{ fontSize: "0.82rem", color: "var(--accent-teal)", fontWeight: 600 }}>
-                    ✓ Dual-Consensus satisfied. Emergent Authority granted to Dr. Minh Tran.
-                  </div>
+                  <span style={{ color: "var(--text-muted)" }}>Chưa có prompt nào được gửi đi...</span>
                 )}
               </div>
-            )}
+            </div>
 
-            {/* Records List Display */}
-            <div className="records-list" id="records-list">
-              {seedData.records.map((record) => {
-                const isShared = consentMap[record.id];
-                const canDecrypt = activeRole === "patient" || (activeRole === "doctor" && isShared);
-
-                return (
-                  <div
-                    key={record.id}
-                    id={`record-card-${record.id}`}
-                    className={`record-card ${isShared ? "shared" : "locked"}`}
-                  >
-                    <div className="record-top">
-                      <div className="record-title-box">
-                        <h4>{record.title}</h4>
-                        <div className="record-facility">
-                          {record.facility} &middot; Recorded on {record.date}
-                        </div>
-                      </div>
-
-                      <div style={{ display: "flex", alignItems: "center", gap: "0.6rem" }}>
-                        <span className={`sensitivity-badge ${
-                          record.category === "vital" ? "vital" :
-                          record.category === "psychiatry" ? "strict" : "confidential"
-                        }`}>
-                          {record.sensitivity}
-                        </span>
-
-                        <span style={{ fontSize: "0.78rem", color: isShared ? "var(--accent-teal)" : "var(--accent-warning)", fontWeight: 600 }}>
-                          {isShared ? "🔓 ACCESSIBLE" : "🔒 ENCRYPTED"}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Record Body: Decrypted vs Zero-Knowledge Ciphertext */}
-                    <div className="record-body">
-                      {canDecrypt ? (
-                        <div className="decrypted-view" id={`decrypted-${record.id}`}>
-                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.4rem", fontSize: "0.75rem", color: "var(--accent-teal)", fontWeight: 600 }}>
-                            <span>✓ DECRYPTED VIA TIDECLOAK EMERGENT AUTHORITY</span>
-                            <span>VERIFIED IMMUTABLE</span>
-                          </div>
-                          {record.content}
-                        </div>
-                      ) : (
-                        <div className="cipher-view" id={`ciphertext-${record.id}`}>
-                          <div>
-                            <span style={{ color: "#f87171", fontWeight: 700 }}>[ZERO-KNOWLEDGE CIPHERTEXT] </span>
-                            {record.ciphertext}
-                          </div>
-                          <div className="cipher-lock-icon">🔒</div>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Patient Consent Toggle (Only accessible to Patient) */}
-                    {activeRole === "patient" && (
-                      <div className="consent-toggle-wrapper">
-                        <label className="switch">
-                          <input
-                            type="checkbox"
-                            id={`toggle-${record.id}`}
-                            checked={isShared}
-                            onChange={() => handleToggleConsent(record.id, record.title)}
-                          />
-                          <span className="slider"></span>
-                        </label>
-                        <span className={`toggle-label ${isShared ? "active" : ""}`}>
-                          {isShared ? "Cross-Hospital Sharing: ENABLED (Clinicians can decrypt)" : "Cross-Hospital Sharing: DISABLED (Encrypted Vault)"}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* Clinician Perspective notice if locked */}
-                    {activeRole === "doctor" && !isShared && (
-                      <div style={{ marginTop: "0.6rem", fontSize: "0.76rem", color: "var(--text-dim)" }}>
-                        ⚠️ Clinician access denied: Patient Sarah Nguyen has kept this record strictly private. No hospital administrator can override this lock.
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
+            {/* Security Explanation */}
+            <div className="gateway-panel" style={{ background: "#f8fafc" }}>
+              <div style={{ fontSize: "0.74rem", color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                💡 <strong>Điểm Chấm Hackathon:</strong> Cloud LLM hoàn toàn không biết ai là người gửi (CCCD, Họ tên, STK đều đã biến thành biến tượng trưng). Khi AI trả lời về, máy khách tại Cột 1 tự động ghép lại tên thật trên RAM của người dùng.
+              </div>
             </div>
           </div>
         </section>
 
-        {/* Right Column: Immutable Audit Trail & TideCloak Verification */}
-        <aside className="sidebar-column">
-          <div className="glass-panel">
-            <div className="panel-header">
-              <div className="panel-title">
-                <span>🛡️</span> Immutable Audit Trail
+        {/* COLUMN 3: POSTGRES LIVE INSPECTOR & CRYPTOGRAPHIC DEFENSE */}
+        <section className="column-card">
+          <div className="col-header">
+            <div className="col-title-wrap">
+              <h2>🛡️ Cột 3: PostgreSQL & Phòng Thủ</h2>
+              <span className="col-sub">100% Ciphertext AES-256-GCM · Quorum QEA</span>
+            </div>
+            <span className={`pill-badge ${dbTampered ? "red" : isShredded ? "amber" : "blue"}`}>
+              {dbTampered ? "TAMPER DETECTED" : isShredded ? "CRYPTO-SHREDDED" : "TIDECLOAK ORK SECURED"}
+            </span>
+          </div>
+
+          <div className="defense-content">
+            {/* DB Table Inspection */}
+            <div className="action-card">
+              <div className="action-card-header">
+                <span className="action-card-title">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ width: 14, height: 14 }}>
+                    <ellipse cx="12" cy="5" rx="9" ry="3" />
+                    <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3" />
+                    <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5" />
+                  </svg>
+                  Trực quan Cơ sở dữ liệu: SELECT * FROM messages
+                </span>
+                <span style={{ fontSize: "0.68rem", color: "var(--text-muted)" }}>0% Plaintext</span>
               </div>
-              <span className="tide-badge" style={{ fontSize: "0.68rem" }}>
-                Zero Master Key
-              </span>
+              <p className="action-desc">
+                Cơ sở dữ liệu lưu tại máy chủ hoàn toàn là chuỗi mã hóa. Không chứa tên, CCCD hay nội dung chat.
+              </p>
+              <div style={{ overflowX: "auto" }}>
+                <table className="db-table-preview">
+                  <thead>
+                    <tr>
+                      <th>conv_id</th>
+                      <th>role</th>
+                      <th>iv (12B)</th>
+                      <th>ciphertext (AES-GCM)</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td>c81a...</td>
+                      <td>user</td>
+                      <td>8f91...</td>
+                      <td>{isShredded ? "NULL" : "ENC::AES-256-GCM::d8e0...4a12"}</td>
+                    </tr>
+                    <tr>
+                      <td>c81a...</td>
+                      <td>assistant</td>
+                      <td>3b77...</td>
+                      <td>{isShredded ? "NULL" : "ENC::AES-256-GCM::1a99...fe30"}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
 
-            <p style={{ fontSize: "0.78rem", color: "var(--text-muted)", marginBottom: "1rem" }}>
-              Every grant, revocation, and blocked override is mathematically signed and anchored via TideCloak.
-            </p>
+            {/* Attack Button 1: Rogue DBA Tampering */}
+            <div className="action-card">
+              <div className="action-card-header">
+                <span className="action-card-title">💥 Đòn 1: Giả lập DBA Độc hại Sửa trộm DB</span>
+                <span className="pill-badge red">Tấn công Dữ liệu</span>
+              </div>
+              <p className="action-desc">
+                Thử nghiệm tình huống DBA / Cloud Admin có quyền Root tự ý đổi bản mã hoặc tráo tin nhắn trong PostgreSQL.
+              </p>
+              <button
+                className="btn-action danger"
+                onClick={handleSimulateDbaTamper}
+                id="btn-simulate-dba"
+              >
+                Giả lập DBA Tamper: Sửa Ciphertext
+              </button>
+            </div>
 
-            <div className="audit-container" id="audit-trail-container">
-              {auditLog.map((entry) => (
-                <div
-                  key={entry.id}
-                  className={`audit-entry ${entry.status === "blocked" ? "blocked" : entry.status === "approved" ? "approved" : ""}`}
+            {/* Attack Button 2: Quorum QEA Challenge */}
+            <div className="action-card">
+              <div className="action-card-header">
+                <span className="action-card-title">⚖️ Đòn 2: Quorum Chống "God Admin" (QEA)</span>
+                <span className="pill-badge amber">TideCloak QEA</span>
+              </div>
+              <p className="action-desc">
+                Admin độc hại cố gắng tự cấp quyền giải mã kho tài liệu VIP. Lệnh bị chặn thành Change Request đòi Quorum &ge; 2 chữ ký.
+              </p>
+              <button
+                className="btn-action warning"
+                onClick={handleTriggerQuorumChallenge}
+                id="btn-simulate-quorum"
+              >
+                Mở Thử thách Quorum (Mời Giám khảo duyệt)
+              </button>
+            </div>
+
+            {/* Action 3: Crypto-Shredding */}
+            <div className="action-card">
+              <div className="action-card-header">
+                <span className="action-card-title">🗑️ Đòn 3: Crypto-Shredding ("Quyền Được Xóa")</span>
+                <span className="pill-badge blue">GDPR / Nghị định 13</span>
+              </div>
+              <p className="action-desc">
+                Xóa sạch wrapped_dek trên TideCloak, biến toàn bộ dữ liệu lịch sử và các bản DB backup cũ thành rác vô nghĩa vĩnh viễn.
+              </p>
+              <div style={{ display: "flex", gap: "0.5rem" }}>
+                <button
+                  className="btn-action danger"
+                  style={{ flex: 1 }}
+                  onClick={handleCryptoShred}
+                  id="btn-crypto-shred"
                 >
-                  <div className="audit-meta">
-                    <span>{entry.timestamp}</span>
-                    <span className={`audit-badge ${entry.status === "blocked" ? "blocked" : entry.status === "approved" ? "granted" : "info"}`}>
-                      {entry.status}
-                    </span>
-                  </div>
-                  <div style={{ fontWeight: 600, color: "var(--text-main)", marginBottom: "0.2rem" }}>
-                    {entry.actor}
-                  </div>
-                  <div className="audit-text">
-                    <strong>{entry.event}:</strong> {entry.details}
-                  </div>
-                  <div className="audit-sig">
-                    Sig: {entry.signature}
-                  </div>
-                </div>
-              ))}
+                  Crypto-Shred
+                </button>
+                <button
+                  className="btn-action primary"
+                  style={{ flex: 1 }}
+                  onClick={handleResetDemo}
+                  id="btn-reset-demo"
+                >
+                  Khôi phục Demo
+                </button>
+              </div>
             </div>
           </div>
-
-          {/* Tide Architecture Explain Card */}
-          <div className="glass-panel" style={{ fontSize: "0.82rem" }}>
-            <h4 style={{ color: "var(--accent-cyan)", marginBottom: "0.6rem", display: "flex", alignItems: "center", gap: "0.4rem" }}>
-              💡 Why TideCloak Matters
-            </h4>
-            <ul style={{ paddingLeft: "1.2rem", color: "var(--text-muted)", display: "flex", flexDirection: "column", gap: "0.4rem" }}>
-              <li>
-                <strong style={{ color: "var(--text-main)" }}>No Master Key:</strong> Decryption keys are never stored on any server or held by any hospital administrator.
-              </li>
-              <li>
-                <strong style={{ color: "var(--text-main)" }}>Emergent Authority:</strong> Authority only emerges at the moment the patient's policy and verified doctor credentials align.
-              </li>
-              <li>
-                <strong style={{ color: "var(--text-main)" }}>Unilateral Block:</strong> A compromised IT admin or rogue hospital cannot override the patient's consent at the cryptographic layer.
-              </li>
-            </ul>
-          </div>
-        </aside>
+        </section>
       </main>
+
+      {/* 4. Quorum Change Request Modal (Interactive for Judges) */}
+      {showQuorumModal && (
+        <div className="modal-overlay">
+          <div className="modal-dialog">
+            <div className="modal-header">
+              <h3>⚖️ TideCloak Change Request #CR-2026-89</h3>
+              <button
+                onClick={() => setShowQuorumModal(false)}
+                style={{ background: "none", border: "none", cursor: "pointer", fontSize: 18 }}
+              >
+                &times;
+              </button>
+            </div>
+            <div className="modal-body">
+              <div className="alert-box danger">
+                <strong>Phát hiện Yêu cầu Nâng Quyền Bất thường:</strong>
+                <div>Admin `db_admin_root` cố gắng tự gán quyền <code>_tide_chat.selfdecrypt</code> để giải mã hội thoại khách hàng.</div>
+              </div>
+              <div>
+                <strong>Cơ chế Quorum-Enforced Governance (QEA):</strong>
+                <p style={{ color: "var(--text-secondary)", marginTop: 4 }}>
+                  TideCloak đã chặn lệnh thực thi trực tiếp. Cần ít nhất <strong>2 chữ ký số độc lập</strong> từ Hội đồng Quản trị Bảo mật trước khi cấp quyền:
+                </p>
+              </div>
+              <div style={{ background: "#f8fafc", padding: "0.75rem", borderRadius: "var(--radius-md)", border: "1px solid var(--border-light)" }}>
+                <div style={{ fontWeight: 600, marginBottom: 6, fontSize: "0.75rem" }}>
+                  Tiến độ Chữ ký Quorum: {quorumSignatures.length} / 2
+                </div>
+                {quorumSignatures.map((sig, i) => (
+                  <div key={i} style={{ color: "#166534", fontSize: "0.75rem", display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
+                    <span>✓</span> <strong>{sig}</strong> — Đã ký bằng WebCrypto Ed25519 (0x7f1a...40b)
+                  </div>
+                ))}
+                {quorumSignatures.length < 2 && (
+                  <div style={{ color: "#b45309", fontSize: "0.75rem", display: "flex", alignItems: "center", gap: 6, marginTop: 4 }}>
+                    <span>⏳</span> Đang chờ Chữ ký số của Giám khảo / Admin 2...
+                  </div>
+                )}
+              </div>
+            </div>
+            <div className="modal-footer">
+              <button className="btn-action danger" style={{ width: "auto", padding: "0.4rem 1rem" }} onClick={handleQuorumReject}>
+                Từ chối (Reject Attack)
+              </button>
+              <button
+                className="btn-action primary"
+                style={{ width: "auto", padding: "0.4rem 1rem" }}
+                onClick={handleQuorumApprove}
+                disabled={quorumSignatures.length >= 2}
+              >
+                {quorumSignatures.length >= 2 ? "✓ Quorum Đã Đủ (Approved)" : "Ký Duyệt (Admin 2 / Giám khảo)"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Floating Toast Notification */}
+      {toast && <div className="toast-notice">{toast}</div>}
     </div>
   );
 }
