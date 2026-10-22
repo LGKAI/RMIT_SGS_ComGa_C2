@@ -1,0 +1,8 @@
+{
+  "realm": "unlocked-carepassport",
+  "auth-server-url": "http://localhost:8080/",
+  "ssl-required": "external",
+  "resource": "carepassport-app",
+  "public-client": true,
+  "confidential-port": 0
+}

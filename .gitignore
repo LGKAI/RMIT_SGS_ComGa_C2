@@ -1,0 +1,36 @@
+# Challenge 1 files & notebooks (separate challenge)
+RMIT_SGS_ComGa_C1.ipynb
+fine_tuning_report.md
+notebooks/
+requirements.txt
+
+# Competition raw media & prompt screenshots
+rmit-hackathon/
+sample-repo/
+
+# Node & Build artifacts
+node_modules/
+dist/
+dist-ssr/
+*.local
+.env
+.env.*.local
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.ipynb_checkpoints/
+
+# System and IDE files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Large datasets & archive files
+*.csv
+*.tsv
+*.parquet
+*.zip
+*.tar.gz
